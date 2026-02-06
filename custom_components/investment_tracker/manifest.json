@@ -1,0 +1,12 @@
+{
+  "domain": "investment_tracker",
+  "name": "Investment Tracker",
+  "version": "0.1.0",
+  "documentation": "https://github.com/jo-anb/investment-tracker",
+  "issue_tracker": "https://github.com/jo-anb/investment-tracker/issues",
+  "requirements": ["yfinance==0.2.41"],
+  "config_flow": true,
+  "codeowners": ["@jo-anb"],
+  "iot_class": "cloud_polling",
+  "loggers": ["yfinance"]
+}

@@ -1,0 +1,3 @@
+[submodule "investment-tracker-card"]
+	path = investment-tracker-card
+	url = https://github.com/jo-anb/investment-tracker-card.git

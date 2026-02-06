@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Investment Tracker",
+        "description": "Set up your investment tracker",
+        "data": {
+          "name": "Name",
+          "broker_name": "Broker name",
+          "broker_type": "Broker type"
+        }
+      },
+      "preferences": {
+        "title": "Preferences",
+        "data": {
+          "base_currency": "Base currency",
+          "update_interval": "Update interval (seconds)"
+        }
+      }
+    }
+  }
+}
