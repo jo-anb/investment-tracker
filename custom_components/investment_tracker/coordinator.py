@@ -205,7 +205,12 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             index[key] = pos
                         for pos in incoming:
                             key = (pos.get("broker", "unknown"), pos.get("symbol", ""))
-                            index[key] = {**index.get(key, {}), **pos}
+                            existing = index.get(key, {})
+                            merged = {**existing, **pos}
+                            if existing.get("manual_type"):
+                                merged["manual_type"] = True
+                                merged["type"] = existing.get("type", merged.get("type"))
+                            index[key] = merged
                         return list(index.values())
 
                     # Process any new CSV files in directory (excluding transaction CSVs)
@@ -488,9 +493,21 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 manual_override = bool(pos.get("manual_type"))
                 asset_type = pos.get("type") if manual_override else mapped_type
 
-                market_value = price * quantity if price is not None else None
-                profit_loss_abs = (price - avg_buy) * quantity if price is not None else None
-                profit_loss_pct = (((price - avg_buy) / avg_buy) * 100) if price is not None and avg_buy else 0
+                is_bond_type = asset_type == "bond"
+                if is_bond_type and price is not None and quantity:
+                    buy_percent = avg_buy or price
+                    if buy_percent:
+                        market_value = quantity * (price / buy_percent)
+                        profit_loss_abs = quantity * ((price / buy_percent) - 1)
+                        profit_loss_pct = price - buy_percent
+                    else:
+                        market_value = None
+                        profit_loss_abs = None
+                        profit_loss_pct = 0
+                else:
+                    market_value = price * quantity if price is not None else None
+                    profit_loss_abs = (price - avg_buy) * quantity if price is not None else None
+                    profit_loss_pct = (((price - avg_buy) / avg_buy) * 100) if price is not None and avg_buy else 0
 
                 if market_value is not None:
                     total_value += market_value
