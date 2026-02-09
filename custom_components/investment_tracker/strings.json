@@ -1,4 +1,5 @@
 {
+  "title": "Investment Tracker",
   "config": {
     "step": {
       "user": {
@@ -7,10 +8,10 @@
         "data": {
           "name": "Name",
           "broker_name": "Broker name",
-            "broker_type": "Broker type",
-            "symbols": "Symbols (comma-separated)",
-            "csv_path": "CSV path (optional)",
-            "csv_mode": "CSV import mode (upload or directory)"
+          "broker_type": "Broker type",
+          "symbols": "Symbols (comma-separated)",
+          "csv_path": "CSV path (optional)",
+          "csv_mode": "CSV import mode (upload or directory)"
         }
       },
       "preferences": {
@@ -40,10 +41,6 @@
           "manual_type": "Type"
         }
       }
-    },
-    "error": {
-      "csv_path_required": "Please select a CSV file.",
-      "api_not_supported": "API broker integration is not available yet."
     }
   },
   "options": {
@@ -106,6 +103,10 @@
           "plan_per_asset": "Investment per asset (comma-separated)"
         }
       }
+    },
+    "error": {
+      "csv_path_required": "Please select a CSV file.",
+      "api_not_supported": "API broker integration is not available yet."
     }
   },
   "issues": {

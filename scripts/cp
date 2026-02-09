@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -e
+
+root_dir="$(dirname "$0")/.."
+
+hass_dir="\\/192.168.2.51"
+echo "Execution date and time: $(date)"
+
+
+if [[ "$1" == "--all" ]] || [[ "$1" == "--card" ]]
+then
+    cd $root_dir
+    echo "Copying card"
+    cd investment-tracker-card
+    # npm run build
+
+    mkdir -p ${hass_dir}/config/www/dev/investment-tracker-card/
+    cp -r "${PWD}"/src/* \
+    "${hass_dir}/config/www/dev/investment-tracker-card/"
+    echo "Card copied"
+fi
+
+if [[ "$1" == "--all" ]] || [[ "$1" == "--component" ]]
+then
+    cd $root_dir
+    echo "Copying component"
+    mkdir -p "${hass_dir}/config/custom_components/investment_tracker/"
+    cp -r "${PWD}"/custom_components/investment_tracker/* \
+    "${hass_dir}/config/custom_components/investment_tracker/"
+    echo "Component copied"
+fi
+echo "All done!"
+echo "-------------------Finished-------------------"
+
+# /hacsfiles/investment-tracker-card/investment-tracker-card.js?hacstag=1135537563100

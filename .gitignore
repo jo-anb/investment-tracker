@@ -1,0 +1,4 @@
+
+.venv312/
+.python-version
+custom_components/investment_tracker/__pycache__/

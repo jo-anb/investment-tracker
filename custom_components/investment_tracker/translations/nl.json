@@ -7,7 +7,10 @@
         "data": {
           "name": "Naam",
           "broker_name": "Brokernaam",
-          "broker_type": "Broker type"
+            "broker_type": "Broker type",
+            "symbols": "Symbolen (komma-gescheiden)",
+            "csv_path": "CSV pad (optioneel)",
+            "csv_mode": "CSV import modus (upload of map)"
         }
       },
       "preferences": {
@@ -15,6 +18,111 @@
         "data": {
           "base_currency": "Basisvaluta",
           "update_interval": "Update-interval (seconden)"
+        }
+      },
+      "csv": {
+        "title": "CSV import",
+        "description": "Kies upload of config import.",
+        "data": {
+          "csv_mode": "CSV import modus",
+          "csv_path": "CSV bestand"
+        }
+      },
+      "manual_setup": {
+        "title": "Handmatige positie",
+        "description": "Voeg een eerste positie toe.",
+        "data": {
+          "manual_symbol": "Symbool",
+          "manual_quantity": "Hoeveelheid",
+          "manual_avg_buy_price": "Gemiddelde aankoopprijs",
+          "manual_currency": "Valuta",
+          "manual_broker": "Broker",
+          "manual_type": "Type"
+        }
+      }
+    },
+    "error": {
+      "csv_path_required": "Selecteer een CSV bestand.",
+      "api_not_supported": "API broker integratie is nog niet beschikbaar."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Investment Tracker Opties",
+        "description": "Kies wat je wilt configureren.",
+        "menu": {
+          "settings": "Instellingen",
+          "manual_add": "Handmatig toevoegen",
+          "manual_transaction": "Transactie toevoegen"
+        },
+        "data": {
+          "menu_action": "Actie"
+        }
+      },
+      "settings": {
+        "title": "Instellingen",
+        "description": "Configureer databronnen en updategedrag.",
+        "data": {
+          "base_currency": "Basisvaluta",
+          "update_interval": "Update-interval (seconden)",
+          "symbols": "Symbolen (komma-gescheiden)",
+          "csv_path": "CSV pad (optioneel)",
+          "csv_mode": "CSV import modus (upload of map)",
+          "market_data_provider": "Marktdata provider",
+          "alpha_vantage_api_key": "Alpha Vantage API sleutel"
+        }
+      },
+      "manual_add": {
+        "title": "Handmatig toevoegen",
+        "description": "Voeg handmatig een positie toe zonder CSV.",
+        "data": {
+          "manual_symbol": "Symbool",
+          "manual_quantity": "Hoeveelheid",
+          "manual_avg_buy_price": "Gemiddelde aankoopprijs",
+          "manual_currency": "Valuta",
+          "manual_broker": "Broker",
+          "manual_type": "Type"
+        }
+      },
+      "manual_transaction": {
+        "title": "Transactie toevoegen",
+        "description": "Voeg handmatig een aankoop/verkoop transactie toe.",
+        "data": {
+          "manual_symbol": "Symbool",
+          "manual_quantity": "Hoeveelheid (negatief bij verkoop)",
+          "manual_avg_buy_price": "Prijs per aandeel",
+          "manual_currency": "Valuta",
+          "manual_broker": "Broker",
+          "date": "Datum (ISO)"
+        }
+      },
+      "investment_plan": {
+        "title": "Investeringsplan",
+        "description": "Stel je investeringsplan in.",
+        "data": {
+          "plan_total": "Totale inleg",
+          "plan_frequency": "Inleg frequentie",
+          "plan_per_asset": "Inleg per asset (komma-gescheiden)"
+        }
+      }
+    }
+  },
+  "issues": {
+    "unmapped_symbol": {
+      "title": "Symbool niet gevonden",
+      "description": "De asset {name} ({symbol}) kon niet worden gematcht met Yahoo Finance."
+    }
+  },
+  "repair_flows": {
+    "unmapped_symbol": {
+      "step": {
+        "init": {
+          "title": "Symbool koppelen",
+          "description": "Kies het juiste Yahoo Finance symbool voor {name} ({symbol}). Suggesties: {suggestions}.",
+          "data": {
+            "mapped_symbol": "Yahoo Finance symbool"
+          }
         }
       }
     }

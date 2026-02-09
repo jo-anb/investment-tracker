@@ -1,0 +1,4 @@
+symbol,name,type,quantity,avg_buy_price,currency,broker,unmapped
+NVDA,NVIDIA,equity,10,420.50,USD,DeGiro,false
+VWCE,Vanguard FTSE All-World,etf,5,98.20,EUR,DeGiro,false
+XAU,Gold,commodity,2,1900,USD,Manual,true

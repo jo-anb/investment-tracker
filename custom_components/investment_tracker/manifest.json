@@ -4,9 +4,12 @@
   "version": "0.1.0",
   "documentation": "https://github.com/jo-anb/investment-tracker",
   "issue_tracker": "https://github.com/jo-anb/investment-tracker/issues",
-  "requirements": ["yfinance==0.2.41"],
+  "requirements": ["requests"],
   "config_flow": true,
+  "repairs": true,
   "codeowners": ["@jo-anb"],
-  "iot_class": "cloud_polling",
-  "loggers": ["yfinance"]
+  "iot_class": "cloud_polling",  
+  "integration_type": "service",
+  "loggers": ["custom_components.investment_tracker"],
+  "icon": "icon.svg"
 }

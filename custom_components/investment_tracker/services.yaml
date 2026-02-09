@@ -1,3 +1,70 @@
 refresh:
   name: Refresh
   description: Force refresh investment data.
+
+refresh_asset:
+  name: Refresh asset (Stooq fallback)
+  description: Refresh a single asset price via Stooq, regardless of the main provider.
+  fields:
+    symbol:
+      name: Symbol
+      description: The asset symbol to refresh (e.g., NVDA).
+      required: true
+      example: NVDA
+      selector:
+        text:
+    broker:
+      name: Broker
+      description: Optional broker name to disambiguate the asset.
+      required: false
+      example: degiro
+      selector:
+        text:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry id to target.
+      required: false
+      example: 123abc
+      selector:
+        text:
+
+remap_symbol:
+  name: Remap symbol/category
+  description: Remap an asset symbol and/or category.
+  fields:
+    symbol:
+      name: Symbol
+      description: The asset symbol to remap (e.g., VWRL.AS).
+      required: false
+      example: VWRL.AS
+      selector:
+        text:
+    broker:
+      name: Broker
+      description: The broker for the asset.
+      required: false
+      example: degiro
+      selector:
+        text:
+    ticker:
+      name: Yahoo ticker
+      description: The new Yahoo ticker.
+      required: false
+      example: VWRL.AS
+      selector:
+        text:
+    category:
+      name: Category
+      description: The new asset category.
+      required: false
+      example: etf
+      selector:
+        select:
+          options:
+            - equity
+            - etf
+            - bond
+            - commodity
+            - crypto
+            - cash
+            - other
