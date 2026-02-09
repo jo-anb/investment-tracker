@@ -41,6 +41,7 @@ def parse_positions_csv(path: str, default_broker: str | None = None) -> list[di
                     "symbol": row.get("symbol").strip().upper(),
                     "name": row.get("name") or row.get("symbol"),
                     "type": row.get("type", "equity"),
+                "manual_type": str(row.get("manual_type", "false")).lower() == "true",
                     "quantity": float(row.get("quantity", 0) or 0),
                     "avg_buy_price": float(row.get("avg_buy_price", 0) or 0),
                     "currency": row.get("currency"),

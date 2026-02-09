@@ -431,7 +431,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 industry = "unknown"
                 logo_url = None
                 yahoo_type = None
-                # Enrich via Yahoo search API (sector, industry, logoUrl, quoteType, exchDisp)
+                # Enrich via Yahoo search and quoteType APIs
                 if provider == "yahoo_public" and mapped_symbol:
                     search_results = await self.hass.async_add_executor_job(search_symbols, mapped_symbol)
                     if search_results:
@@ -448,7 +448,20 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         long_name = search_info.get("longName") or search_info.get("longname")
                         display_name = short_name or long_name or display_name
                         name = display_name
-                    # display_name blijft zoals eerder (kan evt. uit search_info worden gehaald als beschikbaar)
+                    if mapped_symbol not in quote_type_cache:
+                        quote_type_cache[mapped_symbol] = await self.hass.async_add_executor_job(
+                            get_quote_type, mapped_symbol
+                        )
+                    quote_type = quote_type_cache.get(mapped_symbol) or {}
+                    if not exchange_name:
+                        exchange_name = quote_type.get("fullExchangeName") or quote_type.get("exchangeName") or exchange_name
+                    if not short_name and not long_name:
+                        display_name = quote_type.get("shortName") or quote_type.get("longName") or display_name
+                        name = display_name
+                    if not yahoo_type:
+                        yahoo_type = (quote_type.get("quoteType") or quote_type.get("type"))
+                    if not logo_url:
+                        logo_url = quote_type.get("logoUrl") or quote_type.get("logo_url")
 
                 # Map Yahoo type/category to integration type
                 def map_yahoo_category(yahoo_type, sector, industry):
@@ -472,8 +485,8 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     return "other"
 
                 mapped_type = map_yahoo_category(yahoo_type, sector, industry)
-                # Als gebruiker handmatig type heeft gezet, gebruik die, anders mapped_type
-                asset_type = pos.get("type") if pos.get("type") else mapped_type
+                manual_override = bool(pos.get("manual_type"))
+                asset_type = pos.get("type") if manual_override else mapped_type
 
                 market_value = price * quantity if price is not None else None
                 profit_loss_abs = (price - avg_buy) * quantity if price is not None else None

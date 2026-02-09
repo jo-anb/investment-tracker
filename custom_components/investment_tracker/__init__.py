@@ -88,8 +88,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 match_symbol = symbol if symbol else pos.get("symbol")
                 match_broker = broker if broker else pos.get("broker")
                 if pos.get("symbol") == match_symbol and pos.get("broker") == match_broker:
-                    # Zet expliciet type, maar verwijder ook eventueel oude Yahoo-derived type zodat enrichment opnieuw gebeurt
-                    new_pos = {**pos, "type": category}
+                    # Zet expliciet type en markeer als handmatig zodat auto-enrich het niet overschrijft
+                    new_pos = {**pos, "type": category, "manual_type": True}
                     new_positions.append(new_pos)
                     updated = True
                 else:
