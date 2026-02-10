@@ -68,3 +68,29 @@ remap_symbol:
             - crypto
             - cash
             - other
+
+delete_history:
+  name: Delete history
+  description: Purge the recorded history for the matched broker.
+  fields:
+    broker:
+      name: Broker
+      description: Optional broker name to narrow the purge.
+      required: false
+      example: degiro
+      selector:
+        text:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry id to target.
+      required: false
+      example: 123abc
+      selector:
+        text:
+    entity_id:
+      name: Entity
+      description: Optional entity from the integration; it will resolve to the config entry.
+      required: false
+      example: sensor.investment_tracker_degiro
+      selector:
+        entity:

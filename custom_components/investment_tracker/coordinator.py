@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from difflib import SequenceMatcher
+import inspect
 import logging
 from pathlib import Path
 from time import time
@@ -19,6 +20,7 @@ from .const import (
     CONF_CSV_MODE,
     CONF_CSV_PATH,
     CONF_SYMBOL_MAPPING,
+    CONF_ASSET_METADATA,
     CONF_UPDATE_INTERVAL,
     CONF_MARKET_DATA_PROVIDER,
     CONF_ALPHA_VANTAGE_API_KEY,
@@ -54,6 +56,20 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.entry = entry
         self._positions: list[dict[str, Any]] = entry.data.get("positions", [])
+        stored_metadata = entry.data.get(CONF_ASSET_METADATA) or {}
+        self._asset_metadata: dict[str, dict[str, Any]] = {k: dict(v) for k, v in stored_metadata.items()} if isinstance(stored_metadata, dict) else {}
+        self._asset_metadata_dirty = False
+        self._transactions: list[dict[str, Any]] = list(entry.data.get("transactions", []))
+
+    async def _update_entry_data(self, overrides: dict[str, Any]) -> None:
+        data = {**(self.entry.data or {}), **overrides}
+        data[CONF_ASSET_METADATA] = {k: dict(v) for k, v in self._asset_metadata.items()}
+        if "transactions" not in overrides and self._transactions:
+            data["transactions"] = self._transactions
+        update_result = self.hass.config_entries.async_update_entry(self.entry, data=data)
+        self._asset_metadata_dirty = False
+        if inspect.isawaitable(update_result):
+            await update_result
 
     async def async_refresh_asset(self, symbol: str, broker: str | None = None) -> None:
         """Refresh a single asset via Stooq and update coordinator data."""
@@ -124,10 +140,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         unmapped_unique = sorted(set([s for s in unmapped_symbols if s]))
         prev_unmapped = set(self.entry.data.get("unmapped_symbols", []))
         if self.entry.data.get("unmapped_symbols") != unmapped_unique:
-            self.hass.config_entries.async_update_entry(
-                self.entry,
-                data={**self.entry.data, "unmapped_symbols": unmapped_unique},
-            )
+            await self._update_entry_data({"unmapped_symbols": unmapped_unique})
 
         new_unmapped = set(unmapped_unique)
         to_remove = prev_unmapped - new_unmapped
@@ -176,7 +189,8 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             symbols: list[str] = self.entry.options.get("symbols", self.entry.data.get("symbols", []))
             positions: list[dict[str, Any]] = self._positions
-            transactions: list[dict[str, Any]] = self.entry.data.get("transactions", [])
+            transactions: list[dict[str, Any]] = list(self.entry.data.get("transactions", []))
+            self._transactions = transactions
             broker_type = self.entry.data.get(CONF_BROKER_TYPE, "csv")
             csv_mode = self.entry.options.get(CONF_CSV_MODE, self.entry.data.get(CONF_CSV_MODE, "directory"))
             csv_path = self.entry.options.get(CONF_CSV_PATH, self.entry.data.get(CONF_CSV_PATH))
@@ -222,10 +236,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             parse_positions_csv, str(import_file), default_broker
                         )
                         positions = _merge_positions(positions, incoming)
-                        self.hass.config_entries.async_update_entry(
-                            self.entry,
-                            data={**self.entry.data, "positions": positions},
-                        )
+                        await self._update_entry_data({"positions": positions})
                         processed_file = import_file.with_suffix(import_file.suffix + f".processed.{int(time())}")
                         import_file.rename(processed_file)
 
@@ -237,10 +248,8 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         )
                         if incoming_tx:
                             transactions.extend(incoming_tx)
-                            self.hass.config_entries.async_update_entry(
-                                self.entry,
-                                data={**self.entry.data, "transactions": transactions},
-                            )
+                            self._transactions = transactions
+                            await self._update_entry_data({"transactions": transactions})
                         processed_tx = tx_file.with_suffix(tx_file.suffix + f".processed.{int(time())}")
                         tx_file.rename(processed_tx)
 
@@ -253,16 +262,10 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             positions = await self.hass.async_add_executor_job(
                                 parse_positions_csv, str(last_file), default_broker
                             )
-                            self.hass.config_entries.async_update_entry(
-                                self.entry,
-                                data={**self.entry.data, "positions": positions},
-                            )
+                            await self._update_entry_data({"positions": positions})
                 elif csv_path:
                     positions = await self.hass.async_add_executor_job(parse_positions_csv, csv_path)
-                    self.hass.config_entries.async_update_entry(
-                        self.entry,
-                        data={**self.entry.data, "positions": positions},
-                    )
+                    await self._update_entry_data({"positions": positions})
 
             # Recompute positions if transactions are present (do not persist to avoid compounding)
             if transactions:
@@ -349,10 +352,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             if mapping_updates:
                 new_mapping = {**stored_mapping, **mapping_updates} if stored_mapping else {**mapping_updates}
-                self.hass.config_entries.async_update_entry(
-                    self.entry,
-                    data={**self.entry.data, CONF_SYMBOL_MAPPING: new_mapping},
-                )
+                await self._update_entry_data({CONF_SYMBOL_MAPPING: new_mapping})
 
             self.logger.debug(
                 "Symbol mapping: %s",
@@ -496,25 +496,34 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 manual_override = bool(pos.get("manual_type"))
                 asset_type = pos.get("type") if manual_override else mapped_type
 
-                is_bond_type = asset_type == "bond"
-                if is_bond_type and price is not None and quantity:
-                    buy_percent = avg_buy or price
-                    if buy_percent:
-                        market_value = quantity * (price / buy_percent)
-                        profit_loss_abs = quantity * ((price / buy_percent) - 1)
-                        profit_loss_pct = price - buy_percent
+                effective_avg_buy = avg_buy
+                if asset_type == "bond" and effective_avg_buy <= 0 and price is not None:
+                    effective_avg_buy = price
+
+                if price is not None:
+                    if asset_type == "bond":
+                        percent_value = price / 100
+                        percent_cost = (effective_avg_buy or price) / 100 if (effective_avg_buy or price) else 0
+                        market_value = percent_value * quantity
+                        profit_loss_abs = ((price - effective_avg_buy) / 100 if effective_avg_buy else 0) * quantity
+                        profit_loss_pct = (((price - effective_avg_buy) / effective_avg_buy) * 100) if effective_avg_buy else 0
+                        total_invested += percent_cost * quantity
                     else:
-                        market_value = None
-                        profit_loss_abs = None
-                        profit_loss_pct = 0
+                        market_value = price * quantity
+                        if effective_avg_buy:
+                            profit_loss_abs = (price - effective_avg_buy) * quantity
+                            profit_loss_pct = (((price - effective_avg_buy) / effective_avg_buy) * 100)
+                        else:
+                            profit_loss_abs = 0
+                            profit_loss_pct = 0
+                        total_invested += (effective_avg_buy or 0) * quantity
                 else:
-                    market_value = price * quantity if price is not None else None
-                    profit_loss_abs = (price - avg_buy) * quantity if price is not None else None
-                    profit_loss_pct = (((price - avg_buy) / avg_buy) * 100) if price is not None and avg_buy else 0
+                    market_value = None
+                    profit_loss_abs = None
+                    profit_loss_pct = 0
 
                 if market_value is not None:
                     total_value += market_value
-                total_invested += avg_buy * quantity
 
                 pos_broker = (pos.get("broker") or "unknown").strip().lower()
                 asset_transactions = [
@@ -564,10 +573,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             unmapped_unique = sorted(set(unmapped_symbols))
             prev_unmapped = set(self.entry.data.get("unmapped_symbols", []))
             if self.entry.data.get("unmapped_symbols") != unmapped_unique:
-                self.hass.config_entries.async_update_entry(
-                    self.entry,
-                    data={**self.entry.data, "unmapped_symbols": unmapped_unique},
-                )
+                await self._update_entry_data({"unmapped_symbols": unmapped_unique})
 
             name_by_symbol = {a.get("symbol"): a.get("name") for a in assets}
             new_unmapped = set(unmapped_unique)

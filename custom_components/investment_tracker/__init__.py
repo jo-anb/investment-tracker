@@ -11,6 +11,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.setup import async_setup_component
+import inspect
 
 from .api.yahoo import search_symbols
 from .const import CONF_BROKER_NAME, CONF_SYMBOL_MAPPING, DEFAULT_UPDATE_INTERVAL, DOMAIN, PLATFORMS
@@ -226,8 +228,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return
 
         if hass.services.has_service("history", "purge_entities") is False:
-            _LOGGER.warning("delete_history: history.purge_entities service unavailable")
-            return
+            _LOGGER.debug("delete_history: history service unavailable, attempting to load history integration")
+            setup_result = async_setup_component(hass, "history", {})
+            if inspect.isawaitable(setup_result):
+                await setup_result
+            if hass.services.has_service("history", "purge_entities") is False:
+                _LOGGER.warning("delete_history: history.purge_entities service unavailable")
+                return
 
         await hass.services.async_call(
             "history",

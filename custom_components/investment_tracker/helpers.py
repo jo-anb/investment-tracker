@@ -111,9 +111,12 @@ def parse_transactions_csv(path: str, broker: str) -> list[dict[str, object]]:
         # DeGiro format (Dutch headers)
         if "Datum" in header and "Product" in header and "Aantal" in header:
             idx = {name: i for i, name in enumerate(header)}
+            header_len = len(header)
             for row in rows[1:]:
-                if not row or len(row) < len(header):
+                if not row:
                     continue
+                if len(row) < header_len:
+                    row = row + [""] * (header_len - len(row))
                 symbol = (row[idx.get("ISIN", -1)] if idx.get("ISIN", -1) >= 0 else "").strip()
                 name = (row[idx.get("Product", -1)] if idx.get("Product", -1) >= 0 else "").strip()
                 quantity = _to_float(row[idx.get("Aantal", -1)] if idx.get("Aantal", -1) >= 0 else "0")

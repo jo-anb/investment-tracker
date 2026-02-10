@@ -312,6 +312,10 @@ class InvestmentAssetProfitLossPctSensor(InvestmentAssetBaseSensor):
         display = asset.get("display_name") or asset.get("symbol") or self._symbol
         return f"{broker} {display} P/L %"
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        return self._base_attributes()
+
 
 class InvestmentServiceSensor(InvestmentBaseSensor):
     """General service sensor for the integration entry."""
