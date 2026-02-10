@@ -110,7 +110,7 @@
   },
   "issues": {
     "unmapped_symbol": {
-      "title": "Symbool niet gevonden",
+      "title": "Symbool {symbol} ({name}) niet gevonden",
       "description": "De asset {name} ({symbol}) kon niet worden gematcht met Yahoo Finance."
     }
   },

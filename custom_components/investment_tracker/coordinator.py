@@ -301,6 +301,8 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             unresolved_symbols: list[str] = []
             mapping_updates: dict[str, str] = {}
 
+            search_candidates: dict[str, list[dict[str, Any]]] = {}
+
             if provider == "alpha_vantage":
                 for symbol in symbols:
                     symbol_map[symbol] = symbol
@@ -323,6 +325,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         continue
 
                     results = await self.hass.async_add_executor_job(search_symbols, symbol)
+                    search_candidates[symbol] = results[:5] if results else []
                     candidates = [r["symbol"] for r in results]
                     scored = [
                         (cand, SequenceMatcher(None, symbol.upper(), cand.upper()).ratio())
@@ -549,6 +552,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         "unmapped": unmapped,
                         "last_price_update": quote.get("timestamp"),
                         "transactions": asset_transactions,
+                        "repair_suggestions": search_candidates.get(symbol, []),
                     }
                 )
 

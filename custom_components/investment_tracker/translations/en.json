@@ -110,7 +110,7 @@
   },
   "issues": {
     "unmapped_symbol": {
-      "title": "Unmapped symbol",
+      "title": "Symbol {symbol} ({name}) not found",
       "description": "The asset {name} ({symbol}) could not be matched to Yahoo Finance."
     }
   },

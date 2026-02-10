@@ -249,6 +249,7 @@ class InvestmentAssetBaseSensor(InvestmentBaseSensor):
             "unmapped": asset.get("unmapped"),
             "last_price_update": asset.get("last_price_update"),
             "transactions": asset.get("transactions", []),
+            "repair_suggestions": asset.get("repair_suggestions", []),
         }
         logo_url = asset.get("logoUrl")
         if logo_url:
