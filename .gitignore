@@ -3,3 +3,4 @@
 .python-version
 custom_components/investment_tracker/__pycache__/
 scripts/cp
+.env
