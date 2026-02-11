@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_ALPHA_VANTAGE_API_KEY,
@@ -33,6 +35,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
+    """Set up Investment Tracker sensors for the config entry."""
     coordinator: InvestmentTrackerCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list[SensorEntity] = [
         InvestmentServiceSensor(coordinator),
@@ -105,6 +108,8 @@ class InvestmentBaseSensor(
 
 
 class InvestmentTotalValueSensor(InvestmentBaseSensor):
+    """Sensor for the broker's total portfolio value."""
+
     _attr_name = None
     _attr_unique_id = None
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -129,6 +134,8 @@ class InvestmentTotalValueSensor(InvestmentBaseSensor):
 
 
 class InvestmentTotalInvestedSensor(InvestmentBaseSensor):
+    """Sensor for the broker's total invested amount."""
+
     _attr_name = None
     _attr_unique_id = None
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -153,6 +160,8 @@ class InvestmentTotalInvestedSensor(InvestmentBaseSensor):
 
 
 class InvestmentTotalActiveInvestedSensor(InvestmentBaseSensor):
+    """Sensor for the broker's currently active invested amount."""
+
     _attr_name = None
     _attr_unique_id = None
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -177,6 +186,8 @@ class InvestmentTotalActiveInvestedSensor(InvestmentBaseSensor):
 
 
 class InvestmentTotalProfitLossSensor(InvestmentBaseSensor):
+    """Sensor for the broker's total profit or loss."""
+
     _attr_name = None
     _attr_unique_id = None
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -201,6 +212,8 @@ class InvestmentTotalProfitLossSensor(InvestmentBaseSensor):
 
 
 class InvestmentTotalProfitLossPctSensor(InvestmentBaseSensor):
+    """Sensor for the broker's overall profit/loss percentage."""
+
     _attr_name = None
     _attr_unique_id = None
     _attr_native_unit_of_measurement = PERCENTAGE
@@ -221,6 +234,8 @@ class InvestmentTotalProfitLossPctSensor(InvestmentBaseSensor):
 
 
 class InvestmentTotalProfitLossRealizedSensor(InvestmentBaseSensor):
+    """Sensor for the broker's realized profit or loss."""
+
     _attr_name = None
     _attr_unique_id = None
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -247,6 +262,8 @@ class InvestmentTotalProfitLossRealizedSensor(InvestmentBaseSensor):
 
 
 class InvestmentTotalProfitLossUnrealizedSensor(InvestmentBaseSensor):
+    """Sensor for the broker's unrealized profit or loss."""
+
     _attr_name = None
     _attr_unique_id = None
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -325,7 +342,7 @@ class InvestmentAssetBaseSensor(InvestmentBaseSensor):
 
 
 class InvestmentAssetValueSensor(InvestmentAssetBaseSensor):
-    """Market value sensor for a single asset."""
+    """Sensor reporting the market value for an individual asset."""
 
     @property
     def unique_id(self) -> str | None:
@@ -362,7 +379,7 @@ class InvestmentAssetValueSensor(InvestmentAssetBaseSensor):
 
 
 class InvestmentAssetProfitLossPctSensor(InvestmentAssetBaseSensor):
-    """Profit/loss percentage sensor for a single asset."""
+    """Sensor reporting the profit/loss percentage for an individual asset."""
 
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
