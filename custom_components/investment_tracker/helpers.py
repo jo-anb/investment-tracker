@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 from datetime import datetime
+from pathlib import Path
 
 DEFAULT_SYMBOL_MAPPING: dict[str, dict[str, str]] = {
     "default": {
@@ -34,7 +35,8 @@ def parse_positions_csv(
 ) -> list[dict[str, object]]:
     """Parse canonical positions CSV into list of position dicts."""
     positions: list[dict[str, object]] = []
-    with open(path, newline="", encoding="utf-8") as csvfile:
+    path_obj = Path(path)
+    with path_obj.open(newline="", encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
             if not row.get("symbol"):
@@ -77,10 +79,11 @@ def _to_float(value: str | None) -> float:
         return 0.0
 
 
-def parse_transactions_csv(path: str, broker: str) -> list[dict[str, object]]:
+def parse_transactions_csv(path: str, broker: str) -> list[dict[str, object]]:  # noqa: PLR0915
     """Parse broker transaction CSVs into canonical transactions."""
     transactions: list[dict[str, object]] = []
-    with open(path, newline="", encoding="utf-8") as csvfile:
+    path_obj = Path(path)
+    with path_obj.open(newline="", encoding="utf-8") as csvfile:
         reader = csv.reader(csvfile)
         header = next(reader, [])
         if not header:
@@ -105,9 +108,9 @@ def parse_transactions_csv(path: str, broker: str) -> list[dict[str, object]]:
         csvfile.seek(0)
         rows = list(csv.reader(csvfile))
 
-        # Revolut format
-        if "Date" in header and "Ticker" in header and "Type" in header:
-            for raw_row in rows[1:]:
+        def _parse_revolut(rows_subset: list[list[str]]) -> list[dict[str, object]]:
+            output: list[dict[str, object]] = []
+            for raw_row in rows_subset:
                 row = _normalize_row(raw_row)
                 if not row:
                     continue
@@ -121,11 +124,8 @@ def parse_transactions_csv(path: str, broker: str) -> list[dict[str, object]]:
                 price = _to_float(row_dict.get("Price per share"))
                 currency = (row_dict.get("Currency") or "").strip().upper()
                 tx_type = (row_dict.get("Type") or "").upper()
-                if "SELL" in tx_type:
-                    quantity = -abs(quantity)
-                else:
-                    quantity = abs(quantity)
-                transactions.append(
+                quantity = -abs(quantity) if "SELL" in tx_type else abs(quantity)
+                output.append(
                     {
                         "symbol": symbol,
                         "name": symbol,
@@ -136,43 +136,47 @@ def parse_transactions_csv(path: str, broker: str) -> list[dict[str, object]]:
                         "date": row_dict.get("Date"),
                     }
                 )
-            return transactions
+            return output
 
-        # DeGiro format (Dutch headers)
-        if "Datum" in header and "Product" in header and "Aantal" in header:
+        def _parse_degiro(rows_subset: list[list[str]]) -> list[dict[str, object]]:
+            output: list[dict[str, object]] = []
             idx = {name: i for i, name in enumerate(header)}
             header_len = len(header)
-            for row in rows[1:]:
-                row = _normalize_row(row)
-                if not row:
+            for row in rows_subset:
+                normalized = _normalize_row(row)
+                if not normalized:
                     continue
-                if len(row) < header_len:
-                    row = row + [""] * (header_len - len(row))
+                row_data = normalized
+                if len(row_data) < header_len:
+                    row_data = row_data + [""] * (header_len - len(row_data))
                 symbol = (
-                    row[idx.get("ISIN", -1)] if idx.get("ISIN", -1) >= 0 else ""
+                    row_data[idx.get("ISIN", -1)] if idx.get("ISIN", -1) >= 0 else ""
                 ).strip()
                 name = (
-                    row[idx.get("Product", -1)] if idx.get("Product", -1) >= 0 else ""
+                    row_data[idx.get("Product", -1)]
+                    if idx.get("Product", -1) >= 0
+                    else ""
                 ).strip()
                 quantity = _to_float(
-                    row[idx.get("Aantal", -1)] if idx.get("Aantal", -1) >= 0 else "0"
+                    row_data[idx.get("Aantal", -1)]
+                    if idx.get("Aantal", -1) >= 0
+                    else "0"
                 )
                 price = _to_float(
-                    row[idx.get("Koers", -1)] if idx.get("Koers", -1) >= 0 else "0"
+                    row_data[idx.get("Koers", -1)] if idx.get("Koers", -1) >= 0 else "0"
                 )
 
-                # Try to get local currency from column after "Lokale waarde"
                 currency = ""
                 if "Lokale waarde" in idx:
                     cur_idx = idx["Lokale waarde"] + 1
-                    if cur_idx < len(row):
-                        currency = row[cur_idx].strip()
+                    if cur_idx < len(row_data):
+                        currency = row_data[cur_idx].strip()
                 currency = currency or "EUR"
 
                 if not symbol and not name:
                     continue
 
-                transactions.append(
+                output.append(
                     {
                         "symbol": symbol or name,
                         "name": name or symbol,
@@ -180,12 +184,51 @@ def parse_transactions_csv(path: str, broker: str) -> list[dict[str, object]]:
                         "price": price,
                         "currency": currency,
                         "broker": broker,
-                        "date": f"{row[idx.get('Datum', 0)]} {row[idx.get('Tijd', 0)]}",
+                        "date": (
+                            f"{row_data[idx.get('Datum', 0)]} {row_data[idx.get('Tijd', 0)]}"
+                        ),
                     }
                 )
-            return transactions
+            return output
+
+        if "Date" in header and "Ticker" in header and "Type" in header:
+            return _parse_revolut(rows[1:])
+
+        if "Datum" in header and "Product" in header and "Aantal" in header:
+            return _parse_degiro(rows[1:])
 
     return transactions
+
+
+def _aware_datetime(value: str | None) -> datetime:
+    local_tzinfo = datetime.now().astimezone().tzinfo
+    tzinfo = local_tzinfo or datetime.UTC
+    if not value:
+        return datetime.min.replace(tzinfo=tzinfo)
+    text = str(value).strip()
+    if not text:
+        return datetime.min.replace(tzinfo=tzinfo)
+
+    normalized = text
+    if normalized.endswith("Z") and len(normalized) > 1:
+        normalized = f"{normalized[:-1]}+00:00"
+
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        pass
+    else:
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=tzinfo)
+        return parsed
+
+    for fmt in ("%d-%m-%Y %H:%M", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(text, fmt).replace(tzinfo=tzinfo)
+        except ValueError:
+            continue
+
+    return datetime.min.replace(tzinfo=tzinfo)
 
 
 def apply_transactions_to_positions(
@@ -213,24 +256,7 @@ def apply_transactions_to_positions(
 
     # Sort by date if possible
     def _parse_date(value: str | None) -> datetime:
-        if not value:
-            return datetime.min.replace(tzinfo=datetime.now().astimezone().tzinfo)
-        value = str(value).strip()
-        tzinfo = datetime.now().astimezone().tzinfo
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-            if parsed.tzinfo is None:
-                return parsed.replace(tzinfo=tzinfo)
-            return parsed
-        except Exception:
-            pass
-        for fmt in ("%d-%m-%Y %H:%M", "%d-%m-%Y"):
-            try:
-                parsed = datetime.strptime(value, fmt)
-                return parsed.replace(tzinfo=tzinfo)
-            except Exception:
-                continue
-        return datetime.min.replace(tzinfo=tzinfo)
+        return _aware_datetime(value)
 
     for tx in sorted(transactions, key=lambda t: _parse_date(str(t.get("date")))):
         broker = _norm(str(tx.get("broker", "unknown"))) or "unknown"
@@ -281,24 +307,7 @@ def compute_realized_profit_loss(transactions: list[dict[str, object]]) -> float
     """Compute realized profit/loss from transactions using average cost."""
 
     def _parse_date(value: str | None) -> datetime:
-        if not value:
-            return datetime.min.replace(tzinfo=datetime.now().astimezone().tzinfo)
-        value = str(value).strip()
-        tzinfo = datetime.now().astimezone().tzinfo
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-            if parsed.tzinfo is None:
-                return parsed.replace(tzinfo=tzinfo)
-            return parsed
-        except Exception:
-            pass
-        for fmt in ("%d-%m-%Y %H:%M", "%d-%m-%Y"):
-            try:
-                parsed = datetime.strptime(value, fmt)
-                return parsed.replace(tzinfo=tzinfo)
-            except Exception:
-                continue
-        return datetime.min.replace(tzinfo=tzinfo)
+        return _aware_datetime(value)
 
     def _norm(value: str | None) -> str:
         return (value or "").strip().lower()

@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 @dataclass
 class Transaction:
+    """Record of a broker transaction line."""
+
     date: str
     quantity: float
     price: float
@@ -16,6 +21,8 @@ class Transaction:
 
 @dataclass
 class Asset:
+    """Proxy for a tracked asset on the service sensor."""
+
     symbol: str
     name: str
     type: str
@@ -34,6 +41,8 @@ class Asset:
 
 @dataclass
 class Broker:
+    """Metadata describing a broker contribution."""
+
     broker_name: str
     broker_type: str
     connected: bool = False
@@ -43,6 +52,8 @@ class Broker:
 
 @dataclass
 class MarketData:
+    """Pricing snapshot fetched from a market data provider."""
+
     symbol: str
     price: float
     currency: str
@@ -52,5 +63,7 @@ class MarketData:
 
 @dataclass
 class Portfolio:
+    """User portfolio grouping for the service sensor."""
+
     base_currency: str
     assets: list[Asset] = field(default_factory=list)
