@@ -76,21 +76,41 @@ def parse_transactions_csv(path: str, broker: str) -> list[dict[str, object]]:
         if not header:
             return transactions
 
+        # Handle files where entire lines are quoted (Revolut exports wrap every row in quotes)
+        def _normalize_row(values: list[str]) -> list[str]:
+            if len(values) == 1:
+                raw = values[0]
+                trimmed = raw.strip()
+                if trimmed.startswith('"') and trimmed.endswith('"'):
+                    trimmed = trimmed[1:-1]
+                if ',' in trimmed:
+                    return [v.strip() for v in trimmed.split(',')]
+            return values
+
+        header = _normalize_row(header)
+        if header and header[0].startswith("\ufeff"):
+            header[0] = header[0].lstrip("\ufeff")
+        header = [value.strip('"') for value in header]
+
         csvfile.seek(0)
         rows = list(csv.reader(csvfile))
 
         # Revolut format
         if "Date" in header and "Ticker" in header and "Type" in header:
-            csvfile.seek(0)
-            dict_reader = csv.DictReader(csvfile)
-            for row in dict_reader:
-                symbol = (row.get("Ticker") or "").strip().upper()
+            for raw_row in rows[1:]:
+                row = _normalize_row(raw_row)
+                if not row:
+                    continue
+                if len(row) < len(header):
+                    row.extend([""] * (len(header) - len(row)))
+                row_dict = {header[i]: row[i] for i in range(len(header))}
+                symbol = (row_dict.get("Ticker") or "").strip().upper()
                 if not symbol:
                     continue
-                quantity = _to_float(row.get("Quantity"))
-                price = _to_float(row.get("Price per share"))
-                currency = (row.get("Currency") or "").strip().upper()
-                tx_type = (row.get("Type") or "").upper()
+                quantity = _to_float(row_dict.get("Quantity"))
+                price = _to_float(row_dict.get("Price per share"))
+                currency = (row_dict.get("Currency") or "").strip().upper()
+                tx_type = (row_dict.get("Type") or "").upper()
                 if "SELL" in tx_type:
                     quantity = -abs(quantity)
                 else:
@@ -103,7 +123,7 @@ def parse_transactions_csv(path: str, broker: str) -> list[dict[str, object]]:
                         "price": price,
                         "currency": currency,
                         "broker": broker,
-                        "date": row.get("Date"),
+                        "date": row_dict.get("Date"),
                     }
                 )
             return transactions
@@ -113,6 +133,7 @@ def parse_transactions_csv(path: str, broker: str) -> list[dict[str, object]]:
             idx = {name: i for i, name in enumerate(header)}
             header_len = len(header)
             for row in rows[1:]:
+                row = _normalize_row(row)
                 if not row:
                     continue
                 if len(row) < header_len:

@@ -13,6 +13,7 @@ from homeassistant.util import slugify
 
 from .const import (
     CONF_ALPHA_VANTAGE_API_KEY,
+    CONF_BROKER_NAME,
     CONF_MARKET_DATA_PROVIDER,
     CONF_PLAN_FREQUENCY,
     CONF_PLAN_PER_ASSET,
@@ -394,7 +395,7 @@ class InvestmentServiceSensor(InvestmentBaseSensor):
     def extra_state_attributes(self) -> dict[str, Any] | None:
         entry = self.coordinator.entry
         options = entry.options or {}
-        return {
+        attrs: dict[str, Any] = {
             "broker_name": entry.data.get("broker_name"),
             "broker_type": entry.data.get("broker_type"),
             "market_data_provider": options.get(
@@ -408,3 +409,28 @@ class InvestmentServiceSensor(InvestmentBaseSensor):
                 options.get(CONF_ALPHA_VANTAGE_API_KEY, entry.data.get(CONF_ALPHA_VANTAGE_API_KEY))
             ),
         }
+        broker_names = self._collect_broker_names()
+        if broker_names:
+            attrs["broker_names"] = broker_names
+            attrs["broker_slugs"] = [slugify(name) for name in broker_names if name]
+        return attrs
+
+    def _collect_broker_names(self) -> list[str]:
+        seen: set[str] = set()
+        brokers: list[str] = []
+
+        def _append(name: str | None) -> None:
+            value = (name or "").strip()
+            if not value:
+                return
+            key = value.lower()
+            if key in seen:
+                return
+            seen.add(key)
+            brokers.append(value)
+
+        _append(self.coordinator.entry.data.get(CONF_BROKER_NAME))
+        assets = (self.coordinator.data or {}).get("assets", [])
+        for asset in assets:
+            _append(asset.get("broker"))
+        return brokers

@@ -11,6 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import slugify
 from homeassistant.setup import async_setup_component
 import inspect
 
@@ -66,9 +67,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 name = coord.entry.data.get(CONF_BROKER_NAME, "")
                 if name and name.lower() == broker_lower:
                     return coord
+            # Fallback: match service sensor that advertises the broker name/slug
+            coord = _find_coordinator_for_service_broker(broker)
+            if coord:
+                return coord
         entries = hass.data.get(DOMAIN, {})
         if len(entries) == 1:
             return next(iter(entries.values()))
+        return None
+
+    def _find_coordinator_for_service_broker(broker_value: str | None) -> InvestmentTrackerCoordinator | None:
+        broker_slug = slugify(str(broker_value or ""))
+        if not broker_slug:
+            return None
+        registry = er.async_get(hass)
+        for state in hass.states.async_all():
+            if not state or not state.entity_id.startswith("sensor."):
+                continue
+            attrs = state.attributes or {}
+            if not attrs.get("broker_type"):
+                continue
+            slugs = [slugify(attrs.get("broker_name") or "")]
+            additional = attrs.get("broker_slugs") or []
+            if isinstance(additional, (list, tuple)):
+                for value in additional:
+                    slugs.append(slugify(value or ""))
+            if broker_slug not in [slug for slug in slugs if slug]:
+                continue
+            entity = registry.async_get(state.entity_id)
+            if not entity or not entity.config_entry_id:
+                continue
+            coord = hass.data.get(DOMAIN, {}).get(entity.config_entry_id)
+            if coord:
+                return coord
         return None
 
     async def _handle_refresh(call) -> None:

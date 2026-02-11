@@ -36,7 +36,7 @@ Per asset:
 - `profit_loss_abs`
 - `profit_loss_pct`
 - `broker` (Revolut, DeGiro, etc.)
-- `unmapped` (true/false) → true als het symbool niet door yfinance kan worden gemapt; dan geen live prijs.
+- `unmapped` (true/false) → true als het symbool niet door Yahoo kan worden gemapt; dan geen live prijs.
 
 **Datamodel regels (Asset)**
 - `symbol`: verplicht, uniek per broker + asset (key: `broker:symbol`).
@@ -104,7 +104,7 @@ Per asset:
 - `price`: verplicht (>=0).
 - `currency`: verplicht.
 - `timestamp`: verplicht.
-- `source`: verplicht, fixed = `yfinance`.
+- `source`: verplicht, fixed = `yahoo_public`.
 
 ---
 
@@ -114,7 +114,7 @@ We ontwerpen drie mogelijke datastromen:
 ## **0. Data‑flow & normalisatie (globaal)**
 1. **Ingest** vanuit broker (API/CSV/handmatig) → ruwe posities + transacties.
 2. **Symbol mapping** → map broker‑symbol naar Yahoo Finance symbol.
-3. **Market data fetch** via `yfinance` (best‑effort elke 1 minuut).
+3. **Market data fetch** via Yahoo public endpoints (best‑effort elke 1 minuut).
 4. **Normalisatie** → valuta, numerieke afronding, berekende velden.
 5. **Opslag** → assets + portfolio totals + `unmapped` status.
 6. **Expose** → Home Assistant entities & sensors.
@@ -131,7 +131,7 @@ We ontwerpen drie mogelijke datastromen:
 - Indien FX ontbreekt → behoud originele currency en markeer asset als `currency_mismatch=true` (toekomstig attribuut).
 
 ### **Refresh & caching**
-- Market data refresh = **best‑effort 1 minuut**.
+- Market data refresh = **best‑effort 15 minuten**.
 - Bij rate‑limit of timeouts → exponential backoff (max 15 min) + log waarschuwing.
 - Cached prices worden hergebruikt tot volgende succesvolle refresh.
 
@@ -147,7 +147,7 @@ Voor brokers die een API hebben:
 - Alpha Vantage (market data)
 
 ### **Market data API**
-- Yahoo Finance via yfinance (primary, fixed)
+- Yahoo Finance via public endpoints (primary, fixed)
   - best‑effort refresh: elke 1 minuut
   - geen user override
   - historische prijzen: optioneel
@@ -165,6 +165,22 @@ Voor brokers zonder API:
 - eToro
 
 Gebruiker uploadt CSV → integratie parse’t → slaat op.
+
+**Voorbeeldbestand**
+- Zie [examples/positions.csv](examples/positions.csv)
+
+**Transactie‑voorbeelden**
+- [examples/revolut_transactions.csv](examples/revolut_transactions.csv)
+- [examples/degiro_transactions.csv](examples/degiro_transactions.csv)
+
+**Gebruik**
+- Vul in de config flow `csv_path` met het pad naar je CSV.
+
+**Directory‑import (automatisch)**
+- Plaats CSV in `config/www/investment_tracker_imports/`
+- Bestandsnaam = brokernaam zonder spaties (voorbeeld: `degiro.csv`)
+- Na inlezen wordt het bestand hernoemd naar `*.csv.processed`
+- Deze worden niet opnieuw ingelezen
 
 ### **CSV‑schema (canoniek)**
 Bestand moet UTF‑8 zijn en een header bevatten. Kolomnamen zijn case‑insensitive.
@@ -245,6 +261,18 @@ Met attributen:
 ---
 
 # 🧩 **5. Portfolio‑card (frontend design)**
+
+```bash
+|[title(text)]col1-3|
+|header|
+|[portfolio naam(text)]  [dropdown(portfolio selector)]col1-3       |
+|[totale waarde(text)]  [dagrendement(text)] [totaalrendement(text)]col1-3|
+|[assets lijst](assest)col1 |[Portfolio(chart)]col2-3|
+|[assets currencies(piechart)] col1|[assest allocation(piechart)]col2|
+|[investment plan]col1-3
+|footer
+
+```
 De card moet modulair zijn, met secties:
 
 ## **A. Header**
@@ -347,17 +375,17 @@ custom_components/investment_tracker/
 ```
 
 ### **Scaffold details (Home Assistant)**
-- `manifest.json`: metadata, version, dependencies, `config_flow=true`, `requirements` (yfinance).
+- `manifest.json`: metadata, version, dependencies, `config_flow=true`, `requirements` (requests).
 - `__init__.py`: setup entry, init van `DataUpdateCoordinator`.
 - `config_flow.py`: setup van broker(s), API keys (indien nodig), polling‑interval en base‑currency.
 - `const.py`: domein, defaults, platform names, update interval.
-- `api/yahoo.py`: primary market data via `yfinance`.
+- `api/yahoo.py`: primary market data via public Yahoo endpoints.
 - `api/broker_*.py`: broker‑specifieke parsing en authenticatie.
 - `coordinator.py`: data‑flow, mapping, refresh/backoff, normalisatie.
 - `sensor.py`: asset sensors + aggregatie sensors.
 - `helpers.py`: symbol mapping, csv parsing helpers, FX (later).
 - `models.py`: `Asset`, `Portfolio`, `Broker`, `MarketData` dataclasses.
-- `services.yaml`: services zoals `investment_tracker.refresh` of csv‑import.
+- `services.yaml`: services zoals `investment_tracker.refresh` en `investment_tracker.refresh_asset`.
 - `translations/*`: UI strings voor config‑flow en services.
 
 ### **manifest.json (spec)**
@@ -366,11 +394,11 @@ custom_components/investment_tracker/
 - `version`: `0.1.0`
 - `documentation`: link naar README/GitHub
 - `issue_tracker`: link naar GitHub issues
-- `requirements`: `yfinance==<pinned>`
+- `requirements`: `requests`
 - `config_flow`: `true`
 - `codeowners`: `@<github-username>`
 - `iot_class`: `cloud_polling`
-- `loggers`: `yfinance`
+- `loggers`: (leeg)
 
 ### **config_flow (spec)**
 **Stap 1: Broker type**
@@ -437,13 +465,13 @@ Jij bepaalt de richting, ik bouw met je mee.
 ---
 
 # ✅ MVP‑implementatieplan (v0.1)
-Doel: **basis integratie + minimale card**, alleen Yahoo Finance via `yfinance`.
+Doel: **basis integratie + minimale card**, alleen Yahoo Finance via public endpoints.
 
 ## **Backend (Home Assistant integratie)**
 1. **Scaffold files**
   - `manifest.json`, `__init__.py`, `const.py`, `config_flow.py`, `coordinator.py`, `sensor.py`, `models.py`, `helpers.py`.
 2. **Market data**
-  - `api/yahoo.py` → prijs ophalen via `yfinance`.
+  - `api/yahoo.py` → prijs ophalen via Yahoo public endpoints.
   - best‑effort refresh elke 60s + caching.
 3. **Data model**
   - `Asset`, `Portfolio`, `Broker`, `MarketData` dataclasses.
@@ -469,3 +497,17 @@ Doel: **basis integratie + minimale card**, alleen Yahoo Finance via `yfinance`.
 - DCA schedule
 - FX conversion
 - Historical prices
+
+---
+
+# 🧪 Testen (Yahoo fetch)
+Gebruik Python 3.12.
+
+1) Venv aanmaken
+- `py -3.12 -m venv .venv312`
+
+2) Dependencies installeren
+- `.venv312\Scripts\python.exe -m pip install requests`
+
+3) Test runnen
+- `.venv312\Scripts\python.exe scripts\test_yahoo.py NVDA VWCE`
