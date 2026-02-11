@@ -16,7 +16,16 @@ from homeassistant.setup import async_setup_component
 import inspect
 
 from .api.yahoo import search_symbols
-from .const import CONF_BROKER_NAME, CONF_SYMBOL_MAPPING, DEFAULT_UPDATE_INTERVAL, DOMAIN, PLATFORMS
+from .const import (
+    CONF_BROKER_NAME,
+    CONF_PLAN_FREQUENCY,
+    CONF_PLAN_PER_ASSET,
+    CONF_PLAN_TOTAL,
+    CONF_SYMBOL_MAPPING,
+    DEFAULT_UPDATE_INTERVAL,
+    DOMAIN,
+    PLATFORMS,
+)
 from .coordinator import InvestmentTrackerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -281,6 +290,45 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         await coordinator.async_request_refresh()
 
+    async def _handle_update_plan(call) -> None:
+        entry_id = call.data.get("entry_id")
+        broker = call.data.get("broker")
+        coordinator: InvestmentTrackerCoordinator | None = _find_coordinator(entry_id, broker)
+        if not coordinator:
+            _LOGGER.warning(
+                "update_plan: no coordinator found for broker=%s entry_id=%s",
+                broker,
+                entry_id,
+            )
+            return
+
+        entry = coordinator.entry
+        updates: dict[str, Any] = {}
+        if CONF_PLAN_TOTAL in call.data:
+            try:
+                updates[CONF_PLAN_TOTAL] = float(call.data[CONF_PLAN_TOTAL])
+            except (TypeError, ValueError):
+                _LOGGER.warning("update_plan: invalid plan_total=%s", call.data.get(CONF_PLAN_TOTAL))
+        if CONF_PLAN_FREQUENCY in call.data and call.data.get(CONF_PLAN_FREQUENCY):
+            updates[CONF_PLAN_FREQUENCY] = str(call.data[CONF_PLAN_FREQUENCY])
+        if CONF_PLAN_PER_ASSET in call.data:
+            per_asset_payload = call.data.get(CONF_PLAN_PER_ASSET, [])
+            if isinstance(per_asset_payload, str):
+                per_asset_list = [per_asset_payload]
+            elif isinstance(per_asset_payload, (list, tuple)):
+                per_asset_list = per_asset_payload
+            else:
+                per_asset_list = []
+            cleaned = [str(item).strip() for item in per_asset_list if str(item).strip()]
+            updates[CONF_PLAN_PER_ASSET] = cleaned
+        if not updates:
+            _LOGGER.debug("update_plan received no changes for entry_id=%s", entry.entry_id)
+            return
+
+        options = {**(entry.options or {}), **updates}
+        hass.config_entries.async_update_entry(entry, options=options)
+        await coordinator.async_request_refresh()
+
     if hass.services.has_service(DOMAIN, "refresh") is False:
         hass.services.async_register(DOMAIN, "refresh", _handle_refresh)
     if hass.services.has_service(DOMAIN, "refresh_asset") is False:
@@ -289,6 +337,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.services.async_register(DOMAIN, "remap_symbol", _handle_remap_symbol)
     if hass.services.has_service(DOMAIN, "delete_history") is False:
         hass.services.async_register(DOMAIN, "delete_history", _handle_delete_history)
+    if hass.services.has_service(DOMAIN, "update_plan") is False:
+        hass.services.async_register(DOMAIN, "update_plan", _handle_update_plan)
 
     return True
 

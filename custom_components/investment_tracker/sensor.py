@@ -409,6 +409,7 @@ class InvestmentServiceSensor(InvestmentBaseSensor):
                 options.get(CONF_ALPHA_VANTAGE_API_KEY, entry.data.get(CONF_ALPHA_VANTAGE_API_KEY))
             ),
         }
+        attrs["entry_id"] = entry.entry_id
         broker_names = self._collect_broker_names()
         if broker_names:
             attrs["broker_names"] = broker_names
