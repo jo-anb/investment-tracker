@@ -60,7 +60,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         stored_metadata = entry.data.get(CONF_ASSET_METADATA) or {}
         self._asset_metadata: dict[str, dict[str, Any]] = {k: dict(v) for k, v in stored_metadata.items()} if isinstance(stored_metadata, dict) else {}
         self._asset_metadata_dirty = False
-        self._transactions: list[dict[str, Any]] = list(entry.data.get("transactions", []))
+        self._transactions: list[dict[str, Any]] = self._dedupe_transactions(list(entry.data.get("transactions", [])))
 
     async def _update_entry_data(self, overrides: dict[str, Any]) -> None:
         data = {**(self.entry.data or {}), **overrides}
@@ -71,6 +71,25 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._asset_metadata_dirty = False
         if inspect.isawaitable(update_result):
             await update_result
+
+    def _dedupe_transactions(self, transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Keep the first instance of each unique transaction record."""
+        seen: set[tuple[str, str, str, str, str, str]] = set()
+        unique: list[dict[str, Any]] = []
+        for tx in transactions:
+            key = (
+                (tx.get("symbol") or "").strip().upper(),
+                (tx.get("broker") or "unknown").strip().lower(),
+                str(tx.get("date") or "").strip(),
+                str(tx.get("quantity") or "").strip(),
+                str(tx.get("price") or "").strip(),
+                (tx.get("type") or "").strip().upper(),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            unique.append(tx)
+        return unique
 
     async def async_refresh_asset(self, symbol: str, broker: str | None = None) -> None:
         """Refresh a single asset via Stooq and update coordinator data."""
@@ -191,6 +210,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             symbols: list[str] = self.entry.options.get("symbols", self.entry.data.get("symbols", []))
             positions: list[dict[str, Any]] = self._positions
             transactions: list[dict[str, Any]] = list(self.entry.data.get("transactions", []))
+            transactions = self._dedupe_transactions(transactions)
             self._transactions = transactions
             broker_type = self.entry.data.get(CONF_BROKER_TYPE, "csv")
             csv_mode = self.entry.options.get(CONF_CSV_MODE, self.entry.data.get(CONF_CSV_MODE, "directory"))
@@ -249,6 +269,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         )
                         if incoming_tx:
                             transactions.extend(incoming_tx)
+                            transactions = self._dedupe_transactions(transactions)
                             self._transactions = transactions
                             await self._update_entry_data({"transactions": transactions})
                         processed_tx = tx_file.with_suffix(tx_file.suffix + f".processed.{int(time())}")
