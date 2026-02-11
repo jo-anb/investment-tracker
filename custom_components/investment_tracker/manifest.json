@@ -11,5 +11,8 @@
   "iot_class": "cloud_polling",  
   "integration_type": "service",
   "loggers": ["custom_components.investment_tracker"],
-  "icon": "icon.svg"
+  "icon": "icon.svg",
+  "icon_color": "icon_color.svg",
+  "icon_dark": "icon_dark.svg",
+  "resources": ["icon.svg", "icon_color.svg", "icon_dark.svg"]
 }
