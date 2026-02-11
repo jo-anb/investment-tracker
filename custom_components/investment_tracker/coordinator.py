@@ -427,7 +427,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 currency = quote.get("currency")
                 quantity = float(pos.get("quantity", 0.0))
                 avg_buy = float(pos.get("avg_buy_price", 0.0))
-                unmapped = price is None or symbol in unresolved_symbols
+                unmapped = symbol in unresolved_symbols
                 if unmapped:
                     unmapped_symbols.append(symbol)
 
