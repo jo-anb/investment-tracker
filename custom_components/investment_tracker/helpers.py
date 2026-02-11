@@ -1,11 +1,11 @@
 """Helper utilities for Investment Tracker."""
+
 from __future__ import annotations
 
 import csv
 from datetime import datetime
-from typing import Dict, Optional
 
-DEFAULT_SYMBOL_MAPPING: Dict[str, Dict[str, str]] = {
+DEFAULT_SYMBOL_MAPPING: dict[str, dict[str, str]] = {
     "default": {
         "XAU": "XAUUSD=X",
         "VWCE": "VWCE.DE",
@@ -13,7 +13,9 @@ DEFAULT_SYMBOL_MAPPING: Dict[str, Dict[str, str]] = {
 }
 
 
-def map_symbol(broker: str, symbol: str, mapping: Dict[str, Dict[str, str]] | None = None) -> Optional[str]:
+def map_symbol(
+    broker: str, symbol: str, mapping: dict[str, dict[str, str]] | None = None
+) -> str | None:
     """Map broker symbol to Yahoo symbol if available."""
     if not mapping:
         return symbol
@@ -22,12 +24,14 @@ def map_symbol(broker: str, symbol: str, mapping: Dict[str, Dict[str, str]] | No
     return broker_map.get(symbol, default_map.get(symbol, symbol))
 
 
-def get_default_symbol_mapping() -> Dict[str, Dict[str, str]]:
+def get_default_symbol_mapping() -> dict[str, dict[str, str]]:
     """Return default Yahoo symbol mappings."""
     return DEFAULT_SYMBOL_MAPPING
 
 
-def parse_positions_csv(path: str, default_broker: str | None = None) -> list[dict[str, object]]:
+def parse_positions_csv(
+    path: str, default_broker: str | None = None
+) -> list[dict[str, object]]:
     """Parse canonical positions CSV into list of position dicts."""
     positions: list[dict[str, object]] = []
     with open(path, newline="", encoding="utf-8") as csvfile:
@@ -41,7 +45,8 @@ def parse_positions_csv(path: str, default_broker: str | None = None) -> list[di
                     "symbol": row.get("symbol").strip().upper(),
                     "name": row.get("name") or row.get("symbol"),
                     "type": row.get("type", "equity"),
-                "manual_type": str(row.get("manual_type", "false")).lower() == "true",
+                    "manual_type": str(row.get("manual_type", "false")).lower()
+                    == "true",
                     "quantity": float(row.get("quantity", 0) or 0),
                     "avg_buy_price": float(row.get("avg_buy_price", 0) or 0),
                     "currency": row.get("currency"),
@@ -58,7 +63,12 @@ def _to_float(value: str | None) -> float:
     value = value.strip()
     if not value:
         return 0.0
-    value = value.replace("EUR", "").replace("USD", "").replace("GBP", "").replace("PLN", "")
+    value = (
+        value.replace("EUR", "")
+        .replace("USD", "")
+        .replace("GBP", "")
+        .replace("PLN", "")
+    )
     value = value.replace(" ", "")
     value = value.replace(",", ".")
     try:
@@ -83,8 +93,8 @@ def parse_transactions_csv(path: str, broker: str) -> list[dict[str, object]]:
                 trimmed = raw.strip()
                 if trimmed.startswith('"') and trimmed.endswith('"'):
                     trimmed = trimmed[1:-1]
-                if ',' in trimmed:
-                    return [v.strip() for v in trimmed.split(',')]
+                if "," in trimmed:
+                    return [v.strip() for v in trimmed.split(",")]
             return values
 
         header = _normalize_row(header)
@@ -138,10 +148,18 @@ def parse_transactions_csv(path: str, broker: str) -> list[dict[str, object]]:
                     continue
                 if len(row) < header_len:
                     row = row + [""] * (header_len - len(row))
-                symbol = (row[idx.get("ISIN", -1)] if idx.get("ISIN", -1) >= 0 else "").strip()
-                name = (row[idx.get("Product", -1)] if idx.get("Product", -1) >= 0 else "").strip()
-                quantity = _to_float(row[idx.get("Aantal", -1)] if idx.get("Aantal", -1) >= 0 else "0")
-                price = _to_float(row[idx.get("Koers", -1)] if idx.get("Koers", -1) >= 0 else "0")
+                symbol = (
+                    row[idx.get("ISIN", -1)] if idx.get("ISIN", -1) >= 0 else ""
+                ).strip()
+                name = (
+                    row[idx.get("Product", -1)] if idx.get("Product", -1) >= 0 else ""
+                ).strip()
+                quantity = _to_float(
+                    row[idx.get("Aantal", -1)] if idx.get("Aantal", -1) >= 0 else "0"
+                )
+                price = _to_float(
+                    row[idx.get("Koers", -1)] if idx.get("Koers", -1) >= 0 else "0"
+                )
 
                 # Try to get local currency from column after "Lokale waarde"
                 currency = ""
@@ -327,12 +345,13 @@ def compute_total_cash_invested(
     asset_types: dict[str, str] | None = None,
 ) -> float:
     """Return total cash invested (sum of buy transactions)."""
-
     normalized_types = {}
     if asset_types:
         for symbol, asset_type in asset_types.items():
             if symbol:
-                normalized_types[symbol.strip().upper()] = (asset_type or "").strip().lower()
+                normalized_types[symbol.strip().upper()] = (
+                    (asset_type or "").strip().lower()
+                )
 
     total = 0.0
     for tx in transactions:

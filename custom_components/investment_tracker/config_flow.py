@@ -1,37 +1,37 @@
 """Config flow for Investment Tracker."""
+
 from __future__ import annotations
 
-from typing import Any
 import logging
+from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.const import CONF_NAME
 from homeassistant.helpers.selector import selector
 
 from .const import (
+    CONF_ALPHA_VANTAGE_API_KEY,
     CONF_BASE_CURRENCY,
     CONF_BROKER_NAME,
     CONF_BROKER_TYPE,
     CONF_CSV_MODE,
     CONF_CSV_PATH,
-    CONF_MANUAL_SYMBOL,
-    CONF_MANUAL_QUANTITY,
     CONF_MANUAL_AVG_BUY,
-    CONF_MANUAL_CURRENCY,
     CONF_MANUAL_BROKER,
+    CONF_MANUAL_CURRENCY,
+    CONF_MANUAL_QUANTITY,
+    CONF_MANUAL_SYMBOL,
     CONF_MANUAL_TYPE,
+    CONF_MARKET_DATA_PROVIDER,
+    CONF_MENU_ACTION,
+    CONF_PLAN_FREQUENCY,
+    CONF_PLAN_PER_ASSET,
+    CONF_PLAN_TOTAL,
     CONF_SYMBOLS,
     CONF_UPDATE_INTERVAL,
     DEFAULT_BASE_CURRENCY,
     DOMAIN,
-    CONF_MENU_ACTION,
-    CONF_MARKET_DATA_PROVIDER,
-    CONF_ALPHA_VANTAGE_API_KEY,
-    CONF_PLAN_TOTAL,
-    CONF_PLAN_FREQUENCY,
-    CONF_PLAN_PER_ASSET,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -118,8 +118,12 @@ class InvestmentTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "name": user_input.get("name", manual_symbol),
                         "type": user_input.get(CONF_MANUAL_TYPE, "equity"),
                         "quantity": float(user_input.get(CONF_MANUAL_QUANTITY, 0) or 0),
-                        "avg_buy_price": float(user_input.get(CONF_MANUAL_AVG_BUY, 0) or 0),
-                        "currency": user_input.get(CONF_MANUAL_CURRENCY, DEFAULT_BASE_CURRENCY),
+                        "avg_buy_price": float(
+                            user_input.get(CONF_MANUAL_AVG_BUY, 0) or 0
+                        ),
+                        "currency": user_input.get(
+                            CONF_MANUAL_CURRENCY, DEFAULT_BASE_CURRENCY
+                        ),
                         "broker": user_input.get(CONF_MANUAL_BROKER, "manual"),
                     }
                 )
@@ -142,7 +146,9 @@ class InvestmentTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             _LOGGER.debug("Config step preferences input: %s", user_input)
             symbols_raw = self._user_input.get(CONF_SYMBOLS, "")
-            symbols_list = [s.strip().upper() for s in symbols_raw.split(",") if s.strip()]
+            symbols_list = [
+                s.strip().upper() for s in symbols_raw.split(",") if s.strip()
+            ]
             data = {**self._user_input, **user_input, CONF_SYMBOLS: symbols_list}
             if self._manual_positions:
                 data["positions"] = self._manual_positions
@@ -158,7 +164,9 @@ class InvestmentTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="preferences", data_schema=schema)
 
     @staticmethod
-    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
         return InvestmentTrackerOptionsFlow(config_entry)
 
 
@@ -194,7 +202,9 @@ class InvestmentTrackerOptionsFlow(config_entries.OptionsFlow):
             "investment_plan": "Investeringsplan",
         }
         language = (self.hass.config.language or "en") if self.hass else "en"
-        menu_labels = menu_labels_nl if language.lower().startswith("nl") else menu_labels_en
+        menu_labels = (
+            menu_labels_nl if language.lower().startswith("nl") else menu_labels_en
+        )
 
         schema = vol.Schema(
             {
@@ -207,41 +217,79 @@ class InvestmentTrackerOptionsFlow(config_entries.OptionsFlow):
         """Handle settings options."""
         if user_input is not None:
             symbols_raw = user_input.get(CONF_SYMBOLS, "")
-            symbols_list = [s.strip().upper() for s in symbols_raw.split(",") if s.strip()]
+            symbols_list = [
+                s.strip().upper() for s in symbols_raw.split(",") if s.strip()
+            ]
             user_input[CONF_SYMBOLS] = symbols_list
             if user_input.get(CONF_UPDATE_INTERVAL) is not None:
-                user_input[CONF_UPDATE_INTERVAL] = max(900, int(user_input[CONF_UPDATE_INTERVAL]))
+                user_input[CONF_UPDATE_INTERVAL] = max(
+                    900, int(user_input[CONF_UPDATE_INTERVAL])
+                )
             return self.async_create_entry(title="", data=user_input)
 
         current = self._config_entry.options or {}
         defaults = {
-            CONF_BASE_CURRENCY: current.get(CONF_BASE_CURRENCY, self._config_entry.data.get(CONF_BASE_CURRENCY, DEFAULT_BASE_CURRENCY)),
-            CONF_UPDATE_INTERVAL: current.get(CONF_UPDATE_INTERVAL, self._config_entry.data.get(CONF_UPDATE_INTERVAL, 900)),
-            CONF_SYMBOLS: ", ".join(current.get(CONF_SYMBOLS, self._config_entry.data.get(CONF_SYMBOLS, []))),
-            CONF_CSV_PATH: current.get(CONF_CSV_PATH, self._config_entry.data.get(CONF_CSV_PATH, "")),
-            CONF_CSV_MODE: current.get(CONF_CSV_MODE, self._config_entry.data.get(CONF_CSV_MODE, "directory")),
+            CONF_BASE_CURRENCY: current.get(
+                CONF_BASE_CURRENCY,
+                self._config_entry.data.get(CONF_BASE_CURRENCY, DEFAULT_BASE_CURRENCY),
+            ),
+            CONF_UPDATE_INTERVAL: current.get(
+                CONF_UPDATE_INTERVAL,
+                self._config_entry.data.get(CONF_UPDATE_INTERVAL, 900),
+            ),
+            CONF_SYMBOLS: ", ".join(
+                current.get(CONF_SYMBOLS, self._config_entry.data.get(CONF_SYMBOLS, []))
+            ),
+            CONF_CSV_PATH: current.get(
+                CONF_CSV_PATH, self._config_entry.data.get(CONF_CSV_PATH, "")
+            ),
+            CONF_CSV_MODE: current.get(
+                CONF_CSV_MODE, self._config_entry.data.get(CONF_CSV_MODE, "directory")
+            ),
             CONF_MARKET_DATA_PROVIDER: current.get(
-                CONF_MARKET_DATA_PROVIDER, self._config_entry.data.get(CONF_MARKET_DATA_PROVIDER, "yahoo_public")
+                CONF_MARKET_DATA_PROVIDER,
+                self._config_entry.data.get(CONF_MARKET_DATA_PROVIDER, "yahoo_public"),
             ),
             CONF_ALPHA_VANTAGE_API_KEY: current.get(
-                CONF_ALPHA_VANTAGE_API_KEY, self._config_entry.data.get(CONF_ALPHA_VANTAGE_API_KEY, "")
+                CONF_ALPHA_VANTAGE_API_KEY,
+                self._config_entry.data.get(CONF_ALPHA_VANTAGE_API_KEY, ""),
             ),
-            CONF_PLAN_TOTAL: current.get(CONF_PLAN_TOTAL, self._config_entry.data.get(CONF_PLAN_TOTAL, 0)),
+            CONF_PLAN_TOTAL: current.get(
+                CONF_PLAN_TOTAL, self._config_entry.data.get(CONF_PLAN_TOTAL, 0)
+            ),
             CONF_PLAN_FREQUENCY: current.get(
-                CONF_PLAN_FREQUENCY, self._config_entry.data.get(CONF_PLAN_FREQUENCY, "monthly")
+                CONF_PLAN_FREQUENCY,
+                self._config_entry.data.get(CONF_PLAN_FREQUENCY, "monthly"),
             ),
-            CONF_PLAN_PER_ASSET: ", ".join(current.get(CONF_PLAN_PER_ASSET, self._config_entry.data.get(CONF_PLAN_PER_ASSET, []))),
+            CONF_PLAN_PER_ASSET: ", ".join(
+                current.get(
+                    CONF_PLAN_PER_ASSET,
+                    self._config_entry.data.get(CONF_PLAN_PER_ASSET, []),
+                )
+            ),
         }
 
         schema = vol.Schema(
             {
-                vol.Required(CONF_BASE_CURRENCY, default=defaults[CONF_BASE_CURRENCY]): str,
-                vol.Required(CONF_UPDATE_INTERVAL, default=defaults[CONF_UPDATE_INTERVAL]): vol.Coerce(int),
+                vol.Required(
+                    CONF_BASE_CURRENCY, default=defaults[CONF_BASE_CURRENCY]
+                ): str,
+                vol.Required(
+                    CONF_UPDATE_INTERVAL, default=defaults[CONF_UPDATE_INTERVAL]
+                ): vol.Coerce(int),
                 vol.Optional(CONF_SYMBOLS, default=defaults[CONF_SYMBOLS]): str,
                 vol.Optional(CONF_CSV_PATH, default=defaults[CONF_CSV_PATH]): str,
-                vol.Optional(CONF_CSV_MODE, default=defaults[CONF_CSV_MODE]): vol.In(CSV_MODES),
-                vol.Optional(CONF_MARKET_DATA_PROVIDER, default=defaults[CONF_MARKET_DATA_PROVIDER]): vol.In(MARKET_PROVIDERS),
-                vol.Optional(CONF_ALPHA_VANTAGE_API_KEY, default=defaults[CONF_ALPHA_VANTAGE_API_KEY]): str,
+                vol.Optional(CONF_CSV_MODE, default=defaults[CONF_CSV_MODE]): vol.In(
+                    CSV_MODES
+                ),
+                vol.Optional(
+                    CONF_MARKET_DATA_PROVIDER,
+                    default=defaults[CONF_MARKET_DATA_PROVIDER],
+                ): vol.In(MARKET_PROVIDERS),
+                vol.Optional(
+                    CONF_ALPHA_VANTAGE_API_KEY,
+                    default=defaults[CONF_ALPHA_VANTAGE_API_KEY],
+                ): str,
             }
         )
         return self.async_show_form(step_id="settings", data_schema=schema)
@@ -258,13 +306,16 @@ class InvestmentTrackerOptionsFlow(config_entries.OptionsFlow):
                         "name": user_input.get("name", manual_symbol),
                         "type": user_input.get(CONF_MANUAL_TYPE, "equity"),
                         "quantity": float(user_input.get(CONF_MANUAL_QUANTITY, 0) or 0),
-                        "avg_buy_price": float(user_input.get(CONF_MANUAL_AVG_BUY, 0) or 0),
+                        "avg_buy_price": float(
+                            user_input.get(CONF_MANUAL_AVG_BUY, 0) or 0
+                        ),
                         "currency": user_input.get(CONF_MANUAL_CURRENCY, "USD"),
                         "broker": user_input.get(CONF_MANUAL_BROKER, "manual"),
                     }
                 )
                 self.hass.config_entries.async_update_entry(
-                    self._config_entry, data={**self._config_entry.data, "positions": positions}
+                    self._config_entry,
+                    data={**self._config_entry.data, "positions": positions},
                 )
             return self.async_create_entry(title="", data={})
 
@@ -273,25 +324,41 @@ class InvestmentTrackerOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_MANUAL_SYMBOL): str,
                 vol.Optional(CONF_MANUAL_QUANTITY, default=0): vol.Coerce(float),
                 vol.Optional(CONF_MANUAL_AVG_BUY, default=0): vol.Coerce(float),
-                vol.Optional(CONF_MANUAL_CURRENCY, default=self._config_entry.data.get(CONF_BASE_CURRENCY, DEFAULT_BASE_CURRENCY)): str,
-                vol.Optional(CONF_MANUAL_BROKER, default=self._config_entry.data.get(CONF_BROKER_NAME, "manual")): str,
+                vol.Optional(
+                    CONF_MANUAL_CURRENCY,
+                    default=self._config_entry.data.get(
+                        CONF_BASE_CURRENCY, DEFAULT_BASE_CURRENCY
+                    ),
+                ): str,
+                vol.Optional(
+                    CONF_MANUAL_BROKER,
+                    default=self._config_entry.data.get(CONF_BROKER_NAME, "manual"),
+                ): str,
                 vol.Optional(CONF_MANUAL_TYPE, default="equity"): str,
             }
         )
         return self.async_show_form(step_id="manual_add", data_schema=schema)
 
-    async def async_step_manual_transaction(self, user_input: dict[str, Any] | None = None):
+    async def async_step_manual_transaction(
+        self, user_input: dict[str, Any] | None = None
+    ):
         """Manual transaction add flow."""
         if user_input is not None:
             symbol = user_input.get(CONF_MANUAL_SYMBOL, "").strip().upper()
             if symbol:
                 positions = self._config_entry.data.get("positions", [])
                 matched_position = next(
-                    (pos for pos in positions if (pos.get("symbol") or "").strip().upper() == symbol),
+                    (
+                        pos
+                        for pos in positions
+                        if (pos.get("symbol") or "").strip().upper() == symbol
+                    ),
                     None,
                 )
                 default_broker = (
-                    matched_position.get("broker") if matched_position else self._config_entry.data.get(CONF_BROKER_NAME, "manual")
+                    matched_position.get("broker")
+                    if matched_position
+                    else self._config_entry.data.get(CONF_BROKER_NAME, "manual")
                 )
                 broker_input = (user_input.get(CONF_MANUAL_BROKER) or "").strip()
                 broker_value = broker_input or default_broker or "manual"
@@ -308,7 +375,8 @@ class InvestmentTrackerOptionsFlow(config_entries.OptionsFlow):
                     }
                 )
                 self.hass.config_entries.async_update_entry(
-                    self._config_entry, data={**self._config_entry.data, "transactions": transactions}
+                    self._config_entry,
+                    data={**self._config_entry.data, "transactions": transactions},
                 )
                 await self.hass.config_entries.async_reload(self._config_entry.entry_id)
             return self.async_create_entry(title="", data={})
@@ -318,14 +386,24 @@ class InvestmentTrackerOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_MANUAL_SYMBOL): str,
                 vol.Required(CONF_MANUAL_QUANTITY): vol.Coerce(float),
                 vol.Required(CONF_MANUAL_AVG_BUY): vol.Coerce(float),
-                vol.Optional(CONF_MANUAL_CURRENCY, default=self._config_entry.data.get(CONF_BASE_CURRENCY, DEFAULT_BASE_CURRENCY)): str,
-                vol.Optional(CONF_MANUAL_BROKER, default=self._config_entry.data.get(CONF_BROKER_NAME, "manual")): str,
+                vol.Optional(
+                    CONF_MANUAL_CURRENCY,
+                    default=self._config_entry.data.get(
+                        CONF_BASE_CURRENCY, DEFAULT_BASE_CURRENCY
+                    ),
+                ): str,
+                vol.Optional(
+                    CONF_MANUAL_BROKER,
+                    default=self._config_entry.data.get(CONF_BROKER_NAME, "manual"),
+                ): str,
                 vol.Optional("date"): selector({"date": {}}),
             }
         )
         return self.async_show_form(step_id="manual_transaction", data_schema=schema)
 
-    async def async_step_investment_plan(self, user_input: dict[str, Any] | None = None):
+    async def async_step_investment_plan(
+        self, user_input: dict[str, Any] | None = None
+    ):
         """Investment plan options."""
         if user_input is not None:
             per_asset_raw = user_input.get(CONF_PLAN_PER_ASSET, "")
@@ -335,18 +413,32 @@ class InvestmentTrackerOptionsFlow(config_entries.OptionsFlow):
 
         current = self._config_entry.options or {}
         defaults = {
-            CONF_PLAN_TOTAL: current.get(CONF_PLAN_TOTAL, self._config_entry.data.get(CONF_PLAN_TOTAL, 0)),
-            CONF_PLAN_FREQUENCY: current.get(
-                CONF_PLAN_FREQUENCY, self._config_entry.data.get(CONF_PLAN_FREQUENCY, "monthly")
+            CONF_PLAN_TOTAL: current.get(
+                CONF_PLAN_TOTAL, self._config_entry.data.get(CONF_PLAN_TOTAL, 0)
             ),
-            CONF_PLAN_PER_ASSET: ", ".join(current.get(CONF_PLAN_PER_ASSET, self._config_entry.data.get(CONF_PLAN_PER_ASSET, []))),
+            CONF_PLAN_FREQUENCY: current.get(
+                CONF_PLAN_FREQUENCY,
+                self._config_entry.data.get(CONF_PLAN_FREQUENCY, "monthly"),
+            ),
+            CONF_PLAN_PER_ASSET: ", ".join(
+                current.get(
+                    CONF_PLAN_PER_ASSET,
+                    self._config_entry.data.get(CONF_PLAN_PER_ASSET, []),
+                )
+            ),
         }
 
         schema = vol.Schema(
             {
-                vol.Optional(CONF_PLAN_TOTAL, default=defaults[CONF_PLAN_TOTAL]): vol.Coerce(float),
-                vol.Optional(CONF_PLAN_FREQUENCY, default=defaults[CONF_PLAN_FREQUENCY]): vol.In(PLAN_FREQUENCIES),
-                vol.Optional(CONF_PLAN_PER_ASSET, default=defaults[CONF_PLAN_PER_ASSET]): str,
+                vol.Optional(
+                    CONF_PLAN_TOTAL, default=defaults[CONF_PLAN_TOTAL]
+                ): vol.Coerce(float),
+                vol.Optional(
+                    CONF_PLAN_FREQUENCY, default=defaults[CONF_PLAN_FREQUENCY]
+                ): vol.In(PLAN_FREQUENCIES),
+                vol.Optional(
+                    CONF_PLAN_PER_ASSET, default=defaults[CONF_PLAN_PER_ASSET]
+                ): str,
             }
         )
         return self.async_show_form(step_id="investment_plan", data_schema=schema)

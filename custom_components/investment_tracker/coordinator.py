@@ -1,35 +1,42 @@
 """Coordinator for Investment Tracker."""
+
 from __future__ import annotations
 
-from datetime import timedelta
-from difflib import SequenceMatcher
 import inspect
 import logging
+from datetime import timedelta
+from difflib import SequenceMatcher
 from pathlib import Path
 from time import time
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers import issue_registry as ir
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from .api.alphavantage import get_quotes as get_alpha_quotes
+from .api.stooq import get_quotes as get_stooq_quotes
+from .api.yahoo import (
+    get_quote_type,
+    search_symbols,
+)
+from .api.yahoo import (
+    get_quotes as get_yahoo_quotes,
+)
 from .const import (
+    CONF_ALPHA_VANTAGE_API_KEY,
+    CONF_ASSET_METADATA,
     CONF_BROKER_NAME,
     CONF_BROKER_TYPE,
     CONF_CSV_MODE,
     CONF_CSV_PATH,
-    CONF_SYMBOL_MAPPING,
-    CONF_ASSET_METADATA,
-    CONF_UPDATE_INTERVAL,
     CONF_MARKET_DATA_PROVIDER,
-    CONF_ALPHA_VANTAGE_API_KEY,
+    CONF_SYMBOL_MAPPING,
+    CONF_UPDATE_INTERVAL,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
 )
-from .api.stooq import get_quotes as get_stooq_quotes
-from .api.alphavantage import get_quotes as get_alpha_quotes
-from .api.yahoo import get_quote_type, get_quotes as get_yahoo_quotes, search_symbols, get_summary_profile
 from .helpers import (
     apply_transactions_to_positions,
     compute_realized_profit_loss,
@@ -45,10 +52,16 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Fetch and normalize investment data."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        update_seconds = entry.options.get(CONF_UPDATE_INTERVAL, entry.data.get(CONF_UPDATE_INTERVAL, 900))
+        update_seconds = entry.options.get(
+            CONF_UPDATE_INTERVAL, entry.data.get(CONF_UPDATE_INTERVAL, 900)
+        )
         if update_seconds:
             update_seconds = max(900, int(update_seconds))
-        update_interval = timedelta(seconds=update_seconds) if update_seconds else DEFAULT_UPDATE_INTERVAL
+        update_interval = (
+            timedelta(seconds=update_seconds)
+            if update_seconds
+            else DEFAULT_UPDATE_INTERVAL
+        )
         super().__init__(
             hass,
             logger=logging.getLogger(__name__),
@@ -58,21 +71,33 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.entry = entry
         self._positions: list[dict[str, Any]] = entry.data.get("positions", [])
         stored_metadata = entry.data.get(CONF_ASSET_METADATA) or {}
-        self._asset_metadata: dict[str, dict[str, Any]] = {k: dict(v) for k, v in stored_metadata.items()} if isinstance(stored_metadata, dict) else {}
+        self._asset_metadata: dict[str, dict[str, Any]] = (
+            {k: dict(v) for k, v in stored_metadata.items()}
+            if isinstance(stored_metadata, dict)
+            else {}
+        )
         self._asset_metadata_dirty = False
-        self._transactions: list[dict[str, Any]] = self._dedupe_transactions(list(entry.data.get("transactions", [])))
+        self._transactions: list[dict[str, Any]] = self._dedupe_transactions(
+            list(entry.data.get("transactions", []))
+        )
 
     async def _update_entry_data(self, overrides: dict[str, Any]) -> None:
         data = {**(self.entry.data or {}), **overrides}
-        data[CONF_ASSET_METADATA] = {k: dict(v) for k, v in self._asset_metadata.items()}
+        data[CONF_ASSET_METADATA] = {
+            k: dict(v) for k, v in self._asset_metadata.items()
+        }
         if "transactions" not in overrides and self._transactions:
             data["transactions"] = self._transactions
-        update_result = self.hass.config_entries.async_update_entry(self.entry, data=data)
+        update_result = self.hass.config_entries.async_update_entry(
+            self.entry, data=data
+        )
         self._asset_metadata_dirty = False
         if inspect.isawaitable(update_result):
             await update_result
 
-    def _dedupe_transactions(self, transactions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _dedupe_transactions(
+        self, transactions: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Keep the first instance of each unique transaction record."""
         seen: set[tuple[str, str, str, str, str, str]] = set()
         unique: list[dict[str, Any]] = []
@@ -105,28 +130,38 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         target_broker = broker or None
         target_asset = None
         for asset in assets:
-            if asset.get("symbol") == symbol and (not target_broker or asset.get("broker") == target_broker):
+            if asset.get("symbol") == symbol and (
+                not target_broker or asset.get("broker") == target_broker
+            ):
                 target_asset = asset
                 break
 
         if not target_asset:
             return
 
-        broker_name = target_broker or target_asset.get("broker") or self.entry.data.get(CONF_BROKER_NAME, "broker")
+        broker_name = (
+            target_broker
+            or target_asset.get("broker")
+            or self.entry.data.get(CONF_BROKER_NAME, "broker")
+        )
         symbol_mapping = get_default_symbol_mapping()
         stored_mapping = self.entry.data.get(CONF_SYMBOL_MAPPING, {})
         if stored_mapping:
             symbol_mapping.setdefault(broker_name, {}).update(stored_mapping)
 
         mapped_symbol = map_symbol(broker_name, symbol, symbol_mapping)
-        quotes = await self.hass.async_add_executor_job(lambda: get_stooq_quotes([mapped_symbol]))
+        quotes = await self.hass.async_add_executor_job(
+            lambda: get_stooq_quotes([mapped_symbol])
+        )
         quote = quotes.get(mapped_symbol, {})
         price = quote.get("price")
         currency = quote.get("currency") or target_asset.get("currency")
 
         new_assets: list[dict[str, Any]] = []
         for asset in assets:
-            if asset.get("symbol") == symbol and (not target_broker or asset.get("broker") == target_broker):
+            if asset.get("symbol") == symbol and (
+                not target_broker or asset.get("broker") == target_broker
+            ):
                 updated = {**asset}
                 quantity = float(updated.get("quantity", 0.0))
                 avg_buy = float(updated.get("avg_buy_price", 0.0))
@@ -134,9 +169,17 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 updated["currency"] = currency
                 updated["unmapped"] = price is None
                 updated["last_price_update"] = quote.get("timestamp")
-                updated["market_value"] = price * quantity if price is not None else None
-                updated["profit_loss_abs"] = (price - avg_buy) * quantity if price is not None else None
-                updated["profit_loss_pct"] = (((price - avg_buy) / avg_buy) * 100) if price is not None and avg_buy else 0
+                updated["market_value"] = (
+                    price * quantity if price is not None else None
+                )
+                updated["profit_loss_abs"] = (
+                    (price - avg_buy) * quantity if price is not None else None
+                )
+                updated["profit_loss_pct"] = (
+                    (((price - avg_buy) / avg_buy) * 100)
+                    if price is not None and avg_buy
+                    else 0
+                )
                 new_assets.append(updated)
             else:
                 new_assets.append(asset)
@@ -155,7 +198,9 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 unmapped_symbols.append(asset.get("symbol"))
 
         total_profit_loss = total_value - total_invested
-        total_profit_loss_pct = ((total_profit_loss / total_invested) * 100) if total_invested else 0
+        total_profit_loss_pct = (
+            ((total_profit_loss / total_invested) * 100) if total_invested else 0
+        )
 
         unmapped_unique = sorted(set([s for s in unmapped_symbols if s]))
         prev_unmapped = set(self.entry.data.get("unmapped_symbols", []))
@@ -164,7 +209,9 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         new_unmapped = set(unmapped_unique)
         to_remove = prev_unmapped - new_unmapped
-        name_by_symbol = {a.get("symbol"): a.get("name") for a in (self.data or {}).get("assets", [])}
+        name_by_symbol = {
+            a.get("symbol"): a.get("name") for a in (self.data or {}).get("assets", [])
+        }
         for sym in new_unmapped:
             ir.async_create_issue(
                 self.hass,
@@ -207,14 +254,22 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from sources."""
         try:
-            symbols: list[str] = self.entry.options.get("symbols", self.entry.data.get("symbols", []))
+            symbols: list[str] = self.entry.options.get(
+                "symbols", self.entry.data.get("symbols", [])
+            )
             positions: list[dict[str, Any]] = self._positions
-            transactions: list[dict[str, Any]] = list(self.entry.data.get("transactions", []))
+            transactions: list[dict[str, Any]] = list(
+                self.entry.data.get("transactions", [])
+            )
             transactions = self._dedupe_transactions(transactions)
             self._transactions = transactions
             broker_type = self.entry.data.get(CONF_BROKER_TYPE, "csv")
-            csv_mode = self.entry.options.get(CONF_CSV_MODE, self.entry.data.get(CONF_CSV_MODE, "directory"))
-            csv_path = self.entry.options.get(CONF_CSV_PATH, self.entry.data.get(CONF_CSV_PATH))
+            csv_mode = self.entry.options.get(
+                CONF_CSV_MODE, self.entry.data.get(CONF_CSV_MODE, "directory")
+            )
+            csv_path = self.entry.options.get(
+                CONF_CSV_PATH, self.entry.data.get(CONF_CSV_PATH)
+            )
             provider = self.entry.options.get(
                 CONF_MARKET_DATA_PROVIDER,
                 self.entry.data.get(CONF_MARKET_DATA_PROVIDER, "yahoo_public"),
@@ -230,10 +285,14 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             if broker_type == "csv":
                 if csv_mode == "directory":
-                    import_dir = Path(self.hass.config.path("www", "investment_tracker_imports"))
+                    import_dir = Path(
+                        self.hass.config.path("www", "investment_tracker_imports")
+                    )
                     import_dir.mkdir(parents=True, exist_ok=True)
 
-                    def _merge_positions(current: list[dict[str, Any]], incoming: list[dict[str, Any]]) -> list[dict[str, Any]]:
+                    def _merge_positions(
+                        current: list[dict[str, Any]], incoming: list[dict[str, Any]]
+                    ) -> list[dict[str, Any]]:
                         index: dict[tuple[str, str], dict[str, Any]] = {}
                         for pos in current:
                             key = (pos.get("broker", "unknown"), pos.get("symbol", ""))
@@ -244,7 +303,9 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             merged = {**existing, **pos}
                             if existing.get("manual_type"):
                                 merged["manual_type"] = True
-                                merged["type"] = existing.get("type", merged.get("type"))
+                                merged["type"] = existing.get(
+                                    "type", merged.get("type")
+                                )
                             index[key] = merged
                         return list(index.values())
 
@@ -258,12 +319,16 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         )
                         positions = _merge_positions(positions, incoming)
                         await self._update_entry_data({"positions": positions})
-                        processed_file = import_file.with_suffix(import_file.suffix + f".processed.{int(time())}")
+                        processed_file = import_file.with_suffix(
+                            import_file.suffix + f".processed.{int(time())}"
+                        )
                         import_file.rename(processed_file)
 
                     # Transaction CSVs: {broker}_transactions.csv
                     for tx_file in import_dir.glob("*_transactions.csv"):
-                        broker = tx_file.stem.replace("_transactions", "").replace(" ", "")
+                        broker = tx_file.stem.replace("_transactions", "").replace(
+                            " ", ""
+                        )
                         incoming_tx = await self.hass.async_add_executor_job(
                             parse_transactions_csv, str(tx_file), broker
                         )
@@ -271,8 +336,12 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             transactions.extend(incoming_tx)
                             transactions = self._dedupe_transactions(transactions)
                             self._transactions = transactions
-                            await self._update_entry_data({"transactions": transactions})
-                        processed_tx = tx_file.with_suffix(tx_file.suffix + f".processed.{int(time())}")
+                            await self._update_entry_data(
+                                {"transactions": transactions}
+                            )
+                        processed_tx = tx_file.with_suffix(
+                            tx_file.suffix + f".processed.{int(time())}"
+                        )
                         tx_file.rename(processed_tx)
 
                     # If no positions yet, allow reading latest processed file once
@@ -280,13 +349,17 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         processed = sorted(import_dir.glob("*.csv.processed.*"))
                         if processed:
                             last_file = processed[-1]
-                            default_broker = last_file.name.split(".csv.processed")[0].replace(" ", "")
+                            default_broker = last_file.name.split(".csv.processed")[
+                                0
+                            ].replace(" ", "")
                             positions = await self.hass.async_add_executor_job(
                                 parse_positions_csv, str(last_file), default_broker
                             )
                             await self._update_entry_data({"positions": positions})
                 elif csv_path:
-                    positions = await self.hass.async_add_executor_job(parse_positions_csv, csv_path)
+                    positions = await self.hass.async_add_executor_job(
+                        parse_positions_csv, csv_path
+                    )
                     await self._update_entry_data({"positions": positions})
 
             # Recompute positions if transactions are present (do not persist to avoid compounding)
@@ -349,11 +422,16 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         mapped_symbols.append(existing)
                         continue
 
-                    results = await self.hass.async_add_executor_job(search_symbols, symbol)
+                    results = await self.hass.async_add_executor_job(
+                        search_symbols, symbol
+                    )
                     search_candidates[symbol] = results[:5] if results else []
                     candidates = [r["symbol"] for r in results]
                     scored = [
-                        (cand, SequenceMatcher(None, symbol.upper(), cand.upper()).ratio())
+                        (
+                            cand,
+                            SequenceMatcher(None, symbol.upper(), cand.upper()).ratio(),
+                        )
                         for cand in candidates
                     ]
                     high = [cand for cand, score in scored if score >= 0.9]
@@ -373,26 +451,47 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     mapped_symbols.append(mapped)
 
             if mapping_updates:
-                new_mapping = {**stored_mapping, **mapping_updates} if stored_mapping else {**mapping_updates}
+                new_mapping = (
+                    {**stored_mapping, **mapping_updates}
+                    if stored_mapping
+                    else {**mapping_updates}
+                )
                 await self._update_entry_data({CONF_SYMBOL_MAPPING: new_mapping})
 
             self.logger.debug(
                 "Symbol mapping: %s",
-                {"symbol_map": symbol_map, "unresolved": unresolved_symbols, "mapped_symbols": mapped_symbols},
+                {
+                    "symbol_map": symbol_map,
+                    "unresolved": unresolved_symbols,
+                    "mapped_symbols": mapped_symbols,
+                },
             )
 
             if provider == "alpha_vantage":
                 if not alpha_key:
-                    self.logger.warning("Alpha Vantage selected but no API key set; falling back to Stooq.")
-                    quotes = await self.hass.async_add_executor_job(lambda: get_stooq_quotes(mapped_symbols))
+                    self.logger.warning(
+                        "Alpha Vantage selected but no API key set; falling back to Stooq."
+                    )
+                    quotes = await self.hass.async_add_executor_job(
+                        lambda: get_stooq_quotes(mapped_symbols)
+                    )
                 else:
-                    cache_path = self.hass.config.path("investment_tracker_alpha_cache.json")
+                    cache_path = self.hass.config.path(
+                        "investment_tracker_alpha_cache.json"
+                    )
                     quotes = await self.hass.async_add_executor_job(
                         lambda: get_alpha_quotes(mapped_symbols, alpha_key, cache_path)
                     )
-                    missing = [sym for sym, quote in quotes.items() if quote.get("price") is None]
+                    missing = [
+                        sym
+                        for sym, quote in quotes.items()
+                        if quote.get("price") is None
+                    ]
                     if missing:
-                        stooq_map = {sym: map_symbol(broker_name, sym, symbol_mapping) for sym in missing}
+                        stooq_map = {
+                            sym: map_symbol(broker_name, sym, symbol_mapping)
+                            for sym in missing
+                        }
                         stooq_symbols = [stooq_map[sym] for sym in missing]
                         fallback_quotes = await self.hass.async_add_executor_job(
                             lambda: get_stooq_quotes(stooq_symbols)
@@ -426,19 +525,31 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     quotes.update(stooq_quotes)
             else:
                 self.logger.debug("Stooq fetch: %s", mapped_symbols)
-                quotes = await self.hass.async_add_executor_job(lambda: get_stooq_quotes(mapped_symbols))
+                quotes = await self.hass.async_add_executor_job(
+                    lambda: get_stooq_quotes(mapped_symbols)
+                )
 
             assets: list[dict[str, Any]] = []
             total_value = 0.0
             total_active_invested = 0.0
             unmapped_symbols: list[str] = []
-            realized_profit_loss = compute_realized_profit_loss(transactions) if transactions else 0.0
+            realized_profit_loss = (
+                compute_realized_profit_loss(transactions) if transactions else 0.0
+            )
             symbol_asset_types: dict[str, str] = {}
 
             quote_type_cache: dict[str, dict[str, Any] | None] = {}
             summary_profile_cache: dict[str, dict[str, Any] | None] = {}
 
-            for pos in positions or [{"symbol": s, "quantity": 0.0, "avg_buy_price": 0.0, "broker": "unknown"} for s in symbols]:
+            for pos in positions or [
+                {
+                    "symbol": s,
+                    "quantity": 0.0,
+                    "avg_buy_price": 0.0,
+                    "broker": "unknown",
+                }
+                for s in symbols
+            ]:
                 symbol = pos.get("symbol")
                 if not symbol:
                     continue
@@ -452,8 +563,6 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if unmapped:
                     unmapped_symbols.append(symbol)
 
-
-
                 name = pos.get("name", symbol)
                 display_name = symbol
                 exchange_name = "unknown"
@@ -464,35 +573,64 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 yahoo_type = None
                 # Enrich via Yahoo search and quoteType APIs
                 if provider == "yahoo_public" and mapped_symbol:
-                    search_results = await self.hass.async_add_executor_job(search_symbols, mapped_symbol)
+                    search_results = await self.hass.async_add_executor_job(
+                        search_symbols, mapped_symbol
+                    )
                     if search_results:
-                        search_info = next((r for r in search_results if r.get("symbol") == mapped_symbol), search_results[0])
+                        search_info = next(
+                            (
+                                r
+                                for r in search_results
+                                if r.get("symbol") == mapped_symbol
+                            ),
+                            search_results[0],
+                        )
                     else:
                         search_info = None
                     if search_info:
                         sector = search_info.get("sector") or "unknown"
                         industry = search_info.get("industry") or "unknown"
-                        logo_url = search_info.get("logoUrl") or search_info.get("logo_url")
+                        logo_url = search_info.get("logoUrl") or search_info.get(
+                            "logo_url"
+                        )
                         yahoo_type = search_info.get("quoteType") or None
                         exchange_name = search_info.get("exchange") or "unknown"
-                        short_name = search_info.get("shortName") or search_info.get("shortname")
-                        long_name = search_info.get("longName") or search_info.get("longname")
+                        short_name = search_info.get("shortName") or search_info.get(
+                            "shortname"
+                        )
+                        long_name = search_info.get("longName") or search_info.get(
+                            "longname"
+                        )
                         display_name = short_name or long_name or display_name
                         name = display_name
                     if mapped_symbol not in quote_type_cache:
-                        quote_type_cache[mapped_symbol] = await self.hass.async_add_executor_job(
+                        quote_type_cache[
+                            mapped_symbol
+                        ] = await self.hass.async_add_executor_job(
                             get_quote_type, mapped_symbol
                         )
                     quote_type = quote_type_cache.get(mapped_symbol) or {}
                     if not exchange_name:
-                        exchange_name = quote_type.get("fullExchangeName") or quote_type.get("exchangeName") or exchange_name
+                        exchange_name = (
+                            quote_type.get("fullExchangeName")
+                            or quote_type.get("exchangeName")
+                            or exchange_name
+                        )
                     if not short_name and not long_name:
-                        display_name = quote_type.get("shortName") or quote_type.get("longName") or display_name
+                        display_name = (
+                            quote_type.get("shortName")
+                            or quote_type.get("longName")
+                            or display_name
+                        )
                         name = display_name
                     if not yahoo_type:
-                        yahoo_type = (quote_type.get("quoteType") or quote_type.get("type"))
+                        yahoo_type = quote_type.get("quoteType") or quote_type.get(
+                            "type"
+                        )
                     if not logo_url:
-                        logo_url = quote_type.get("logoUrl") or quote_type.get("logo_url")
+                        logo_url = quote_type.get("logoUrl") or quote_type.get(
+                            "logo_url"
+                        )
 
                 # Map Yahoo type/category to integration type
                 def map_yahoo_category(yahoo_type, sector, industry):
@@ -505,11 +643,21 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         return "bond"
                     if yt in ["commodity"] or "commodity" in sec or "commodity" in ind:
                         return "commodity"
-                    if yt in ["cryptocurrency", "crypto"] or "crypto" in ind or "crypto" in sec:
+                    if (
+                        yt in ["cryptocurrency", "crypto"]
+                        or "crypto" in ind
+                        or "crypto" in sec
+                    ):
                         return "crypto"
                     if yt in ["cash"] or "cash" in ind or "cash" in sec:
                         return "cash"
-                    if yt in ["equity", "stock"] or "stock" in ind or "stock" in sec or "equity" in sec or "equity" in ind:
+                    if (
+                        yt in ["equity", "stock"]
+                        or "stock" in ind
+                        or "stock" in sec
+                        or "equity" in sec
+                        or "equity" in ind
+                    ):
                         return "equity"
                     if not sec and not ind:
                         return "equity"
@@ -522,22 +670,40 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     symbol_asset_types[symbol.strip().upper()] = asset_type or ""
 
                 effective_avg_buy = avg_buy
-                if asset_type == "bond" and effective_avg_buy <= 0 and price is not None:
+                if (
+                    asset_type == "bond"
+                    and effective_avg_buy <= 0
+                    and price is not None
+                ):
                     effective_avg_buy = price
 
                 if price is not None:
                     if asset_type == "bond":
                         percent_value = price / 100
-                        percent_cost = (effective_avg_buy or price) / 100 if (effective_avg_buy or price) else 0
+                        percent_cost = (
+                            (effective_avg_buy or price) / 100
+                            if (effective_avg_buy or price)
+                            else 0
+                        )
                         market_value = percent_value * quantity
-                        profit_loss_abs = ((price - effective_avg_buy) / 100 if effective_avg_buy else 0) * quantity
-                        profit_loss_pct = (((price - effective_avg_buy) / effective_avg_buy) * 100) if effective_avg_buy else 0
+                        profit_loss_abs = (
+                            (price - effective_avg_buy) / 100
+                            if effective_avg_buy
+                            else 0
+                        ) * quantity
+                        profit_loss_pct = (
+                            (((price - effective_avg_buy) / effective_avg_buy) * 100)
+                            if effective_avg_buy
+                            else 0
+                        )
                         total_active_invested += percent_cost * quantity
                     else:
                         market_value = price * quantity
                         if effective_avg_buy:
                             profit_loss_abs = (price - effective_avg_buy) * quantity
-                            profit_loss_pct = (((price - effective_avg_buy) / effective_avg_buy) * 100)
+                            profit_loss_pct = (
+                                (price - effective_avg_buy) / effective_avg_buy
+                            ) * 100
                         else:
                             profit_loss_abs = 0
                             profit_loss_pct = 0
@@ -557,7 +723,10 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     if (tx.get("symbol") or "").strip().upper() == symbol
                     and (tx.get("broker") or "unknown").strip().lower() == pos_broker
                 ]
-                if not asset_transactions and len(symbol_brokers.get(symbol, set())) == 1:
+                if (
+                    not asset_transactions
+                    and len(symbol_brokers.get(symbol, set())) == 1
+                ):
                     asset_transactions = [
                         tx
                         for tx in transactions
@@ -590,10 +759,18 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     }
                 )
 
-            total_cash_invested = compute_total_cash_invested(transactions, symbol_asset_types) if transactions else 0.0
+            total_cash_invested = (
+                compute_total_cash_invested(transactions, symbol_asset_types)
+                if transactions
+                else 0.0
+            )
             total_profit_loss_unrealized = total_value - total_active_invested
             total_profit_loss = total_profit_loss_unrealized + realized_profit_loss
-            total_profit_loss_pct = ((total_profit_loss / total_cash_invested) * 100) if total_cash_invested else 0
+            total_profit_loss_pct = (
+                ((total_profit_loss / total_cash_invested) * 100)
+                if total_cash_invested
+                else 0
+            )
 
             # Persist unmapped symbols for repairs visibility
             unmapped_unique = sorted(set(unmapped_symbols))
@@ -634,7 +811,9 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             return {
                 "portfolio": {
-                    "base_currency": self.entry.options.get("base_currency", self.entry.data.get("base_currency", "EUR")),
+                    "base_currency": self.entry.options.get(
+                        "base_currency", self.entry.data.get("base_currency", "EUR")
+                    ),
                 },
                 "assets": assets,
                 "unmapped_symbols": unmapped_unique,

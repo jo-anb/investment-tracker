@@ -1,9 +1,10 @@
 """Yahoo Finance client (public endpoints)."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 import logging
-from typing import Dict, Any
+from datetime import datetime, timedelta
+from typing import Any
 
 import requests
 
@@ -54,8 +55,12 @@ def search_symbols(query: str) -> list[dict[str, Any]]:
             "enablePrivateCompany": "true",
         }
         _LOGGER.debug("Yahoo search request url=%s params=%s", SEARCH_URL, params)
-        resp = requests.get(SEARCH_URL, params=params, timeout=15, headers=DEFAULT_HEADERS)
-        _LOGGER.debug("Yahoo search response status=%s text=%s", resp.status_code, resp.text[:500])
+        resp = requests.get(
+            SEARCH_URL, params=params, timeout=15, headers=DEFAULT_HEADERS
+        )
+        _LOGGER.debug(
+            "Yahoo search response status=%s text=%s", resp.status_code, resp.text[:500]
+        )
         if resp.status_code != 200:
             return []
         payload = resp.json()
@@ -73,16 +78,18 @@ def search_symbols(query: str) -> list[dict[str, Any]]:
             exchange_disp = q.get("exchDisp")
             short_name = q.get("shortName")
             long_name = q.get("longName")
-            results.append({
-                "symbol": symbol,
-                "sector": sector,
-                "industry": industry,
-                "logoUrl": logo_url,
-                "quoteType": quote_type,
-                "exchange": exchange_disp,
-                "shortName": short_name,
-                "longName": long_name,
-            })
+            results.append(
+                {
+                    "symbol": symbol,
+                    "sector": sector,
+                    "industry": industry,
+                    "logoUrl": logo_url,
+                    "quoteType": quote_type,
+                    "exchange": exchange_disp,
+                    "shortName": short_name,
+                    "longName": long_name,
+                }
+            )
         return results[:10]
     except Exception as err:
         _LOGGER.debug("Yahoo search failed for %s: %s", query, err)
@@ -102,8 +109,14 @@ def get_quote_type(symbol: str) -> dict[str, Any] | None:
             "enablePrivateCompany": "true",
         }
         _LOGGER.debug("Yahoo quoteType request url=%s params=%s", QUOTETYPE_URL, params)
-        resp = requests.get(QUOTETYPE_URL, params=params, timeout=15, headers=DEFAULT_HEADERS)
-        _LOGGER.debug("Yahoo quoteType response status=%s text=%s", resp.status_code, resp.text[:500])
+        resp = requests.get(
+            QUOTETYPE_URL, params=params, timeout=15, headers=DEFAULT_HEADERS
+        )
+        _LOGGER.debug(
+            "Yahoo quoteType response status=%s text=%s",
+            resp.status_code,
+            resp.text[:500],
+        )
         if resp.status_code != 200:
             return None
         payload = resp.json()
@@ -129,14 +142,22 @@ def get_summary_profile(symbol: str) -> dict[str, Any] | None:
             "lang": "en-US",
             "region": "US",
         }
-        _LOGGER.debug("Yahoo quoteSummary request url=%s params=%s", QUOTE_SUMMARY_URL.format(symbol=symbol), params)
+        _LOGGER.debug(
+            "Yahoo quoteSummary request url=%s params=%s",
+            QUOTE_SUMMARY_URL.format(symbol=symbol),
+            params,
+        )
         resp = requests.get(
             QUOTE_SUMMARY_URL.format(symbol=symbol),
             params=params,
             timeout=15,
             headers=DEFAULT_HEADERS,
         )
-        _LOGGER.debug("Yahoo quoteSummary response status=%s text=%s", resp.status_code, resp.text[:500])
+        _LOGGER.debug(
+            "Yahoo quoteSummary response status=%s text=%s",
+            resp.status_code,
+            resp.text[:500],
+        )
         if resp.status_code != 200:
             return None
         payload = resp.json()
@@ -149,7 +170,7 @@ def get_summary_profile(symbol: str) -> dict[str, Any] | None:
         return None
 
 
-def get_quotes(symbols: list[str]) -> Dict[str, dict]:
+def get_quotes(symbols: list[str]) -> dict[str, dict]:
     """Fetch latest quotes via Yahoo chart endpoint."""
     if not symbols:
         return {}
@@ -158,7 +179,7 @@ def get_quotes(symbols: list[str]) -> Dict[str, dict]:
     period2 = int(now.timestamp())
     period1 = int((now - timedelta(days=3)).timestamp())
 
-    data: Dict[str, dict] = {}
+    data: dict[str, dict] = {}
     for symbol in symbols:
         symbol = _normalize_symbol(symbol)
         if not symbol:
@@ -177,19 +198,29 @@ def get_quotes(symbols: list[str]) -> Dict[str, dict]:
                 "region": "US",
                 "source": "cosaic",
             }
-            _LOGGER.debug("Yahoo chart request url=%s params=%s", CHART_URL.format(symbol=symbol), params)
+            _LOGGER.debug(
+                "Yahoo chart request url=%s params=%s",
+                CHART_URL.format(symbol=symbol),
+                params,
+            )
             resp = requests.get(
                 CHART_URL.format(symbol=symbol),
                 params=params,
                 timeout=15,
                 headers=DEFAULT_HEADERS,
             )
-            _LOGGER.debug("Yahoo chart response status=%s text=%s", resp.status_code, resp.text[:500])
+            _LOGGER.debug(
+                "Yahoo chart response status=%s text=%s",
+                resp.status_code,
+                resp.text[:500],
+            )
             if resp.status_code == 200:
                 payload = resp.json()
                 chart = payload.get("chart", {}) or {}
                 if chart.get("error"):
-                    _LOGGER.debug("Yahoo chart error for %s: %s", symbol, chart.get("error"))
+                    _LOGGER.debug(
+                        "Yahoo chart error for %s: %s", symbol, chart.get("error")
+                    )
                 result = chart.get("result", [])
                 if result:
                     meta = result[0].get("meta", {})

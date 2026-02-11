@@ -16,7 +16,7 @@ def fetch(symbol: str) -> float | None:
         return None
     header = lines[0].split(",")
     row = lines[1].split(",")
-    row_map = dict(zip(header, row))
+    row_map = dict(zip(header, row, strict=False))
     close_val = row_map.get("Close")
     if close_val in (None, "", "N/A"):
         return None
@@ -25,7 +25,9 @@ def fetch(symbol: str) -> float | None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Test Stooq fetch.")
-    parser.add_argument("symbols", nargs="*", default=["NVDA.US", "GOOGL.US"], help="Symbols to fetch")
+    parser.add_argument(
+        "symbols", nargs="*", default=["NVDA.US", "GOOGL.US"], help="Symbols to fetch"
+    )
     args = parser.parse_args()
 
     for symbol in args.symbols:

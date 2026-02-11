@@ -1,12 +1,12 @@
 """Alpha Vantage market data client."""
+
 from __future__ import annotations
 
-from datetime import datetime
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any
-from typing import Dict
 
 import requests
 
@@ -30,18 +30,25 @@ def _save_cache(cache_path: Path, cache: dict[str, dict[str, Any]]) -> None:
         return
 
 
-def get_quotes(symbols: list[str], api_key: str, cache_path: str | None = None) -> Dict[str, dict]:
-    """Fetch latest quotes via Alpha Vantage GLOBAL_QUOTE.
+def get_quotes(
+    symbols: list[str], api_key: str, cache_path: str | None = None
+) -> dict[str, dict]:
+    """
+    Fetch latest quotes via Alpha Vantage GLOBAL_QUOTE.
 
     If cache_path is provided, cached values are used when the API returns no data
     (rate limit, errors, or empty response).
     """
-    data: Dict[str, dict] = {}
+    data: dict[str, dict] = {}
     cache_file = Path(cache_path) if cache_path else None
     cache = _load_cache(cache_file) if cache_file else {}
     if not api_key:
         for symbol in symbols:
-            data[symbol] = {"price": None, "currency": None, "timestamp": datetime.utcnow().isoformat()}
+            data[symbol] = {
+                "price": None,
+                "currency": None,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
         return data
 
     for symbol in symbols:
@@ -59,9 +66,13 @@ def get_quotes(symbols: list[str], api_key: str, cache_path: str | None = None) 
             else:
                 payload = resp.json()
                 if payload.get("Note") or payload.get("Error Message"):
-                    _LOGGER.debug("Alpha Vantage rate limit or error for %s: %s", symbol, payload)
+                    _LOGGER.debug(
+                        "Alpha Vantage rate limit or error for %s: %s", symbol, payload
+                    )
                 else:
-                    quote = payload.get("Global Quote") or payload.get("Global quote") or {}
+                    quote = (
+                        payload.get("Global Quote") or payload.get("Global quote") or {}
+                    )
                     price_str = quote.get("05. price") or quote.get("05. Price")
                     if price_str not in (None, ""):
                         price = float(price_str)

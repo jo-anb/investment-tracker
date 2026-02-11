@@ -1,15 +1,15 @@
 """Repairs for Investment Tracker."""
+
 from __future__ import annotations
 
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.components.repairs import RepairsFlow
 from homeassistant.core import HomeAssistant
 
 from .api.yahoo import search_symbols
-from .const import CONF_BROKER_NAME, CONF_SYMBOL_MAPPING, DOMAIN
+from .const import CONF_BROKER_NAME, CONF_SYMBOL_MAPPING
 
 
 async def async_create_fix_flow(
@@ -38,7 +38,9 @@ async def async_get_repair_flow(
 class InvestmentTrackerRepairFlow(RepairsFlow):
     """Repair flow for symbol mapping."""
 
-    def __init__(self, hass: HomeAssistant, entry_id: str, symbol: str, name: str) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry_id: str, symbol: str, name: str
+    ) -> None:
         self.hass = hass
         self.entry_id = entry_id
         self.symbol = symbol
@@ -59,12 +61,15 @@ class InvestmentTrackerRepairFlow(RepairsFlow):
                 )
             return self.async_create_entry(title="", data={})
 
-
         # search_symbols now returns a list of dicts
         results = await self.hass.async_add_executor_job(search_symbols, self.symbol)
         self._suggestions = [r["symbol"] for r in results]
-        exact = next((s for s in self._suggestions if s.upper() == self.symbol.upper()), None)
-        default_value = exact or (self._suggestions[0] if self._suggestions else self.symbol)
+        exact = next(
+            (s for s in self._suggestions if s.upper() == self.symbol.upper()), None
+        )
+        default_value = exact or (
+            self._suggestions[0] if self._suggestions else self.symbol
+        )
 
         schema = vol.Schema(
             {
@@ -78,6 +83,8 @@ class InvestmentTrackerRepairFlow(RepairsFlow):
             description_placeholders={
                 "symbol": self.symbol,
                 "name": self.name,
-                "suggestions": ", ".join(self._suggestions) if self._suggestions else "-",
+                "suggestions": ", ".join(self._suggestions)
+                if self._suggestions
+                else "-",
             },
         )

@@ -1,7 +1,9 @@
 """Constants for Investment Tracker."""
+
 from __future__ import annotations
 
 from datetime import timedelta
+
 from homeassistant.const import Platform
 
 DOMAIN = "investment_tracker"

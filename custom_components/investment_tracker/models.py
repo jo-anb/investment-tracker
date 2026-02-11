@@ -1,9 +1,9 @@
 """Datamodels for Investment Tracker."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional
 
 
 @dataclass
@@ -21,15 +21,15 @@ class Asset:
     type: str
     quantity: float
     avg_buy_price: float
-    current_price: Optional[float]
+    current_price: float | None
     currency: str
-    market_value: Optional[float]
-    profit_loss_abs: Optional[float]
-    profit_loss_pct: Optional[float]
+    market_value: float | None
+    profit_loss_abs: float | None
+    profit_loss_pct: float | None
     broker: str
     unmapped: bool = False
-    last_price_update: Optional[datetime] = None
-    transactions: List[Transaction] = field(default_factory=list)
+    last_price_update: datetime | None = None
+    transactions: list[Transaction] = field(default_factory=list)
 
 
 @dataclass
@@ -37,8 +37,8 @@ class Broker:
     broker_name: str
     broker_type: str
     connected: bool = False
-    last_sync: Optional[datetime] = None
-    accounts: List[str] = field(default_factory=list)
+    last_sync: datetime | None = None
+    accounts: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -53,4 +53,4 @@ class MarketData:
 @dataclass
 class Portfolio:
     base_currency: str
-    assets: List[Asset] = field(default_factory=list)
+    assets: list[Asset] = field(default_factory=list)

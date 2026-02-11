@@ -1,4 +1,5 @@
 """Test Alpha Vantage market data fetch."""
+
 from __future__ import annotations
 
 import sys
@@ -12,7 +13,9 @@ import importlib.util
 
 
 def _load_get_quotes():
-    module_path = ROOT / "custom_components" / "investment_tracker" / "api" / "alphavantage.py"
+    module_path = (
+        ROOT / "custom_components" / "investment_tracker" / "api" / "alphavantage.py"
+    )
     spec = importlib.util.spec_from_file_location("alphavantage", module_path)
     if spec is None or spec.loader is None:
         raise RuntimeError("Unable to load alphavantage module")
@@ -26,7 +29,10 @@ get_quotes = _load_get_quotes()
 
 def _main() -> int:
     if len(sys.argv) < 3:
-        print("Usage: python scripts/test_alpha.py <API_KEY> <SYMBOL> [SYMBOL...]", file=sys.stderr)
+        print(
+            "Usage: python scripts/test_alpha.py <API_KEY> <SYMBOL> [SYMBOL...]",
+            file=sys.stderr,
+        )
         return 2
 
     api_key = sys.argv[1].strip()

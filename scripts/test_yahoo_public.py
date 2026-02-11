@@ -1,9 +1,10 @@
 """Test Yahoo public market data fetch."""
+
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
-import importlib.util
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,7 +21,10 @@ def _load_module():
 
 def _main() -> int:
     if len(sys.argv) < 2:
-        print("Usage: python scripts/test_yahoo_public.py <SYMBOL> [SYMBOL...]", file=sys.stderr)
+        print(
+            "Usage: python scripts/test_yahoo_public.py <SYMBOL> [SYMBOL...]",
+            file=sys.stderr,
+        )
         return 2
 
     symbols = [s.replace("$", "").strip().upper() for s in sys.argv[1:] if s.strip()]

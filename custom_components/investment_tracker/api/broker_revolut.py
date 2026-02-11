@@ -1,4 +1,5 @@
 """Revolut broker adapter (placeholder)."""
+
 from __future__ import annotations
 
 

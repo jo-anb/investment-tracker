@@ -1,8 +1,10 @@
 """Investment Tracker integration."""
+
 from __future__ import annotations
 
-from datetime import timedelta
+import inspect
 import logging
+from datetime import timedelta
 from typing import Any
 
 from aiohttp import web
@@ -11,9 +13,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-from homeassistant.util import slugify
 from homeassistant.setup import async_setup_component
-import inspect
+from homeassistant.util import slugify
 
 from .api.yahoo import search_symbols
 from .const import (
@@ -51,7 +52,9 @@ class InvestmentTrackerSearchSymbolsView(HomeAssistantView):
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Investment Tracker from a config entry."""
-    coordinator: InvestmentTrackerCoordinator = InvestmentTrackerCoordinator(hass, entry)
+    coordinator: InvestmentTrackerCoordinator = InvestmentTrackerCoordinator(
+        hass, entry
+    )
     await coordinator.async_config_entry_first_refresh()
 
     global _SEARCH_VIEW_REGISTERED
@@ -65,7 +68,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    def _find_coordinator(entry_id: str | None = None, broker: str | None = None) -> InvestmentTrackerCoordinator | None:
+    def _find_coordinator(
+        entry_id: str | None = None, broker: str | None = None
+    ) -> InvestmentTrackerCoordinator | None:
         if entry_id:
             candidate = hass.data.get(DOMAIN, {}).get(entry_id)
             if candidate:
@@ -85,7 +90,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return next(iter(entries.values()))
         return None
 
-    def _find_coordinator_for_service_broker(broker_value: str | None) -> InvestmentTrackerCoordinator | None:
+    def _find_coordinator_for_service_broker(
+        broker_value: str | None,
+    ) -> InvestmentTrackerCoordinator | None:
         broker_slug = slugify(str(broker_value or ""))
         if not broker_slug:
             return None
@@ -120,7 +127,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         broker = call.data.get("broker")
         symbol = call.data.get("symbol")
 
-        coordinator: InvestmentTrackerCoordinator | None = _find_coordinator(entry_id, broker)
+        coordinator: InvestmentTrackerCoordinator | None = _find_coordinator(
+            entry_id, broker
+        )
 
         if coordinator and symbol:
             await coordinator.async_refresh_asset(symbol, broker)
@@ -132,7 +141,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ticker = call.data.get("ticker")
         category = call.data.get("category")
 
-        coordinator: InvestmentTrackerCoordinator | None = _find_coordinator(entry_id, broker)
+        coordinator: InvestmentTrackerCoordinator | None = _find_coordinator(
+            entry_id, broker
+        )
 
         if not coordinator:
             _LOGGER.warning(
@@ -185,7 +196,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         entry,
                         data={**entry.data, "positions": positions, "transactions": []},
                     )
-                    _LOGGER.debug("remap_symbol populated positions from assets for manual overrides")
+                    _LOGGER.debug(
+                        "remap_symbol populated positions from assets for manual overrides"
+                    )
 
             new_positions = []
             normalized_symbol = symbol.strip().upper() if symbol else None
@@ -199,8 +212,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             for pos in positions:
                 pos_symbol = (pos.get("symbol") or "").strip().upper()
                 pos_broker = (pos.get("broker") or "").strip().lower()
-                symbol_match = normalized_symbol == pos_symbol if normalized_symbol else True
-                broker_match = normalized_broker == pos_broker if normalized_broker else True
+                symbol_match = (
+                    normalized_symbol == pos_symbol if normalized_symbol else True
+                )
+                broker_match = (
+                    normalized_broker == pos_broker if normalized_broker else True
+                )
                 if symbol_match and broker_match:
                     _LOGGER.debug(
                         "remap_symbol match found pos symbol=%s broker=%s",
@@ -244,7 +261,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if registry_entity:
                 resolved_entry_id = registry_entity.config_entry_id
 
-        coordinator: InvestmentTrackerCoordinator | None = _find_coordinator(resolved_entry_id, broker)
+        coordinator: InvestmentTrackerCoordinator | None = _find_coordinator(
+            resolved_entry_id, broker
+        )
         if not coordinator:
             _LOGGER.warning(
                 "delete_history: no coordinator found for broker=%s entry_id=%s",
@@ -256,7 +275,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entity_ids = [
             entity.entity_id
             for entity in registry.entities.values()
-            if entity.config_entry_id == coordinator.entry.entry_id and entity.domain == "sensor"
+            if entity.config_entry_id == coordinator.entry.entry_id
+            and entity.domain == "sensor"
         ]
 
         if not entity_ids:
@@ -268,12 +288,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return
 
         if hass.services.has_service("history", "purge_entities") is False:
-            _LOGGER.debug("delete_history: history service unavailable, attempting to load history integration")
+            _LOGGER.debug(
+                "delete_history: history service unavailable, attempting to load history integration"
+            )
             setup_result = async_setup_component(hass, "history", {})
             if inspect.isawaitable(setup_result):
                 await setup_result
             if hass.services.has_service("history", "purge_entities") is False:
-                _LOGGER.warning("delete_history: history.purge_entities service unavailable")
+                _LOGGER.warning(
+                    "delete_history: history.purge_entities service unavailable"
+                )
                 return
 
         await hass.services.async_call(
@@ -293,7 +317,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def _handle_update_plan(call) -> None:
         entry_id = call.data.get("entry_id")
         broker = call.data.get("broker")
-        coordinator: InvestmentTrackerCoordinator | None = _find_coordinator(entry_id, broker)
+        coordinator: InvestmentTrackerCoordinator | None = _find_coordinator(
+            entry_id, broker
+        )
         if not coordinator:
             _LOGGER.warning(
                 "update_plan: no coordinator found for broker=%s entry_id=%s",
@@ -308,7 +334,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 updates[CONF_PLAN_TOTAL] = float(call.data[CONF_PLAN_TOTAL])
             except (TypeError, ValueError):
-                _LOGGER.warning("update_plan: invalid plan_total=%s", call.data.get(CONF_PLAN_TOTAL))
+                _LOGGER.warning(
+                    "update_plan: invalid plan_total=%s", call.data.get(CONF_PLAN_TOTAL)
+                )
         if CONF_PLAN_FREQUENCY in call.data and call.data.get(CONF_PLAN_FREQUENCY):
             updates[CONF_PLAN_FREQUENCY] = str(call.data[CONF_PLAN_FREQUENCY])
         if CONF_PLAN_PER_ASSET in call.data:
@@ -319,10 +347,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 per_asset_list = per_asset_payload
             else:
                 per_asset_list = []
-            cleaned = [str(item).strip() for item in per_asset_list if str(item).strip()]
+            cleaned = [
+                str(item).strip() for item in per_asset_list if str(item).strip()
+            ]
             updates[CONF_PLAN_PER_ASSET] = cleaned
         if not updates:
-            _LOGGER.debug("update_plan received no changes for entry_id=%s", entry.entry_id)
+            _LOGGER.debug(
+                "update_plan received no changes for entry_id=%s", entry.entry_id
+            )
             return
 
         options = {**(entry.options or {}), **updates}
@@ -345,9 +377,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     coordinator: InvestmentTrackerCoordinator = hass.data[DOMAIN][entry.entry_id]
-    update_seconds = entry.options.get("update_interval", entry.data.get("update_interval", 60))
+    update_seconds = entry.options.get(
+        "update_interval", entry.data.get("update_interval", 60)
+    )
     update_seconds = max(900, int(update_seconds)) if update_seconds else None
-    coordinator.update_interval = timedelta(seconds=update_seconds) if update_seconds else DEFAULT_UPDATE_INTERVAL
+    coordinator.update_interval = (
+        timedelta(seconds=update_seconds) if update_seconds else DEFAULT_UPDATE_INTERVAL
+    )
     await coordinator.async_request_refresh()
 
 

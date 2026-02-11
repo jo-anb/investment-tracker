@@ -1,4 +1,5 @@
 """Button entities for Investment Tracker."""
+
 from __future__ import annotations
 
 from homeassistant.components.button import ButtonEntity
@@ -26,7 +27,9 @@ class InvestmentRefreshButton(ButtonEntity):
 
     def __init__(self, coordinator: InvestmentTrackerCoordinator) -> None:
         self._coordinator = coordinator
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_investment_tracker_refresh"
+        self._attr_unique_id = (
+            f"{coordinator.entry.entry_id}_investment_tracker_refresh"
+        )
 
     async def async_press(self) -> None:
         await self._coordinator.async_request_refresh()

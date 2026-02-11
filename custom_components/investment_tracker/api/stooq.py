@@ -1,9 +1,9 @@
 """Stooq market data client."""
+
 from __future__ import annotations
 
-from datetime import datetime
 import logging
-from typing import Dict
+from datetime import datetime
 
 import requests
 
@@ -21,7 +21,15 @@ def _stooq_symbols(symbol: str) -> list[str]:
     # If already has suffix (e.g., .US, .DE), try as-is first.
     if "." in sym:
         return [sym]
-    return [f"{sym}.US", f"{sym}.DE", f"{sym}.UK", f"{sym}.L", f"{sym}.F", f"{sym}.PL", sym]
+    return [
+        f"{sym}.US",
+        f"{sym}.DE",
+        f"{sym}.UK",
+        f"{sym}.L",
+        f"{sym}.F",
+        f"{sym}.PL",
+        sym,
+    ]
 
 
 def suggest_symbols(symbol: str) -> list[str]:
@@ -40,7 +48,7 @@ def suggest_symbols(symbol: str) -> list[str]:
                 continue
             header = lines[0].split(",")
             row = lines[1].split(",")
-            row_map = dict(zip(header, row))
+            row_map = dict(zip(header, row, strict=False))
             close_val = row_map.get("Close")
             if close_val in (None, "", "N/A"):
                 continue
@@ -51,9 +59,9 @@ def suggest_symbols(symbol: str) -> list[str]:
     return matches[:10]
 
 
-def get_quotes(symbols: list[str]) -> Dict[str, dict]:
+def get_quotes(symbols: list[str]) -> dict[str, dict]:
     """Fetch latest quotes via Stooq CSV API."""
-    data: Dict[str, dict] = {}
+    data: dict[str, dict] = {}
     for symbol in symbols:
         candidates = _stooq_symbols(symbol)
         price = None
@@ -63,7 +71,12 @@ def get_quotes(symbols: list[str]) -> Dict[str, dict]:
         for candidate in candidates:
             try:
                 url = "https://stooq.com/q/l/"
-                params = {"s": candidate.lower(), "f": "sd2t2ohlcv", "h": "", "e": "csv"}
+                params = {
+                    "s": candidate.lower(),
+                    "f": "sd2t2ohlcv",
+                    "h": "",
+                    "e": "csv",
+                }
                 resp = requests.get(url, params=params, timeout=10)
                 if resp.status_code != 200:
                     continue
@@ -72,7 +85,7 @@ def get_quotes(symbols: list[str]) -> Dict[str, dict]:
                     continue
                 header = lines[0].split(",")
                 row = lines[1].split(",")
-                row_map = dict(zip(header, row))
+                row_map = dict(zip(header, row, strict=False))
                 close_val = row_map.get("Close")
                 if close_val in (None, "", "N/A"):
                     continue

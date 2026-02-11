@@ -1,11 +1,16 @@
 """Sensors for Investment Tracker."""
+
 from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
-from homeassistant.const import PERCENTAGE
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -42,7 +47,7 @@ async def async_setup_entry(
     tracked: dict[str, SensorEntity] = {}
 
     def _asset_key(asset: dict[str, Any], suffix: str) -> str:
-        return f"{asset.get('broker','unknown')}:{asset.get('symbol','unknown')}:{suffix}".lower()
+        return f"{asset.get('broker', 'unknown')}:{asset.get('symbol', 'unknown')}:{suffix}".lower()
 
     def _sync_assets() -> None:
         assets = coordinator.data.get("assets", [])
@@ -81,7 +86,9 @@ async def async_setup_entry(
     coordinator.async_add_listener(_sync_assets)
 
 
-class InvestmentBaseSensor(CoordinatorEntity[InvestmentTrackerCoordinator], SensorEntity):
+class InvestmentBaseSensor(
+    CoordinatorEntity[InvestmentTrackerCoordinator], SensorEntity
+):
     """Base sensor."""
 
     def __init__(self, coordinator: InvestmentTrackerCoordinator) -> None:
@@ -222,7 +229,9 @@ class InvestmentTotalProfitLossRealizedSensor(InvestmentBaseSensor):
 
     @property
     def native_value(self) -> Any:
-        return self.coordinator.data.get("totals", {}).get("total_profit_loss_realized", 0)
+        return self.coordinator.data.get("totals", {}).get(
+            "total_profit_loss_realized", 0
+        )
 
     @property
     def name(self) -> str | None:
@@ -236,6 +245,7 @@ class InvestmentTotalProfitLossRealizedSensor(InvestmentBaseSensor):
     def native_unit_of_measurement(self) -> str | None:
         return self.coordinator.data.get("portfolio", {}).get("base_currency")
 
+
 class InvestmentTotalProfitLossUnrealizedSensor(InvestmentBaseSensor):
     _attr_name = None
     _attr_unique_id = None
@@ -245,7 +255,9 @@ class InvestmentTotalProfitLossUnrealizedSensor(InvestmentBaseSensor):
 
     @property
     def native_value(self) -> Any:
-        return self.coordinator.data.get("totals", {}).get("total_profit_loss_unrealized", 0)
+        return self.coordinator.data.get("totals", {}).get(
+            "total_profit_loss_unrealized", 0
+        )
 
     @property
     def name(self) -> str | None:
@@ -259,10 +271,13 @@ class InvestmentTotalProfitLossUnrealizedSensor(InvestmentBaseSensor):
     def native_unit_of_measurement(self) -> str | None:
         return self.coordinator.data.get("portfolio", {}).get("base_currency")
 
+
 class InvestmentAssetBaseSensor(InvestmentBaseSensor):
     """Base sensor for a single asset."""
 
-    def __init__(self, coordinator: InvestmentTrackerCoordinator, asset: dict[str, Any]) -> None:
+    def __init__(
+        self, coordinator: InvestmentTrackerCoordinator, asset: dict[str, Any]
+    ) -> None:
         super().__init__(coordinator)
         self._symbol = asset.get("symbol", "unknown")
         self._broker = asset.get("broker", "unknown")
@@ -270,7 +285,10 @@ class InvestmentAssetBaseSensor(InvestmentBaseSensor):
     def _get_asset(self) -> dict[str, Any] | None:
         assets = self.coordinator.data.get("assets", [])
         for asset in assets:
-            if asset.get("symbol") == self._symbol and asset.get("broker") == self._broker:
+            if (
+                asset.get("symbol") == self._symbol
+                and asset.get("broker") == self._broker
+            ):
                 return asset
         return None
 
@@ -352,7 +370,9 @@ class InvestmentAssetProfitLossPctSensor(InvestmentAssetBaseSensor):
 
     @property
     def unique_id(self) -> str | None:
-        return f"{self._entry_id}_investment_{self._broker}_{self._symbol}_pl_pct".lower()
+        return (
+            f"{self._entry_id}_investment_{self._broker}_{self._symbol}_pl_pct".lower()
+        )
 
     @property
     def name(self) -> str | None:
@@ -401,12 +421,21 @@ class InvestmentServiceSensor(InvestmentBaseSensor):
             "market_data_provider": options.get(
                 CONF_MARKET_DATA_PROVIDER, entry.data.get(CONF_MARKET_DATA_PROVIDER)
             ),
-            "update_interval": options.get("update_interval", entry.data.get("update_interval")),
+            "update_interval": options.get(
+                "update_interval", entry.data.get("update_interval")
+            ),
             "plan_total": options.get(CONF_PLAN_TOTAL, entry.data.get(CONF_PLAN_TOTAL)),
-            "plan_frequency": options.get(CONF_PLAN_FREQUENCY, entry.data.get(CONF_PLAN_FREQUENCY)),
-            "plan_per_asset": options.get(CONF_PLAN_PER_ASSET, entry.data.get(CONF_PLAN_PER_ASSET, [])),
+            "plan_frequency": options.get(
+                CONF_PLAN_FREQUENCY, entry.data.get(CONF_PLAN_FREQUENCY)
+            ),
+            "plan_per_asset": options.get(
+                CONF_PLAN_PER_ASSET, entry.data.get(CONF_PLAN_PER_ASSET, [])
+            ),
             "alpha_vantage_api_key_set": bool(
-                options.get(CONF_ALPHA_VANTAGE_API_KEY, entry.data.get(CONF_ALPHA_VANTAGE_API_KEY))
+                options.get(
+                    CONF_ALPHA_VANTAGE_API_KEY,
+                    entry.data.get(CONF_ALPHA_VANTAGE_API_KEY),
+                )
             ),
         }
         attrs["entry_id"] = entry.entry_id
