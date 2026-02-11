@@ -33,6 +33,7 @@ from .api.yahoo import get_quote_type, get_quotes as get_yahoo_quotes, search_sy
 from .helpers import (
     apply_transactions_to_positions,
     compute_realized_profit_loss,
+    compute_total_cash_invested,
     get_default_symbol_mapping,
     map_symbol,
     parse_positions_csv,
@@ -408,9 +409,10 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             assets: list[dict[str, Any]] = []
             total_value = 0.0
-            total_invested = 0.0
+            total_active_invested = 0.0
             unmapped_symbols: list[str] = []
             realized_profit_loss = compute_realized_profit_loss(transactions) if transactions else 0.0
+            symbol_asset_types: dict[str, str] = {}
 
             quote_type_cache: dict[str, dict[str, Any] | None] = {}
             summary_profile_cache: dict[str, dict[str, Any] | None] = {}
@@ -495,6 +497,8 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 mapped_type = map_yahoo_category(yahoo_type, sector, industry)
                 manual_override = bool(pos.get("manual_type"))
                 asset_type = pos.get("type") if manual_override else mapped_type
+                if symbol:
+                    symbol_asset_types[symbol.strip().upper()] = asset_type or ""
 
                 effective_avg_buy = avg_buy
                 if asset_type == "bond" and effective_avg_buy <= 0 and price is not None:
@@ -507,7 +511,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         market_value = percent_value * quantity
                         profit_loss_abs = ((price - effective_avg_buy) / 100 if effective_avg_buy else 0) * quantity
                         profit_loss_pct = (((price - effective_avg_buy) / effective_avg_buy) * 100) if effective_avg_buy else 0
-                        total_invested += percent_cost * quantity
+                        total_active_invested += percent_cost * quantity
                     else:
                         market_value = price * quantity
                         if effective_avg_buy:
@@ -516,7 +520,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         else:
                             profit_loss_abs = 0
                             profit_loss_pct = 0
-                        total_invested += (effective_avg_buy or 0) * quantity
+                        total_active_invested += (effective_avg_buy or 0) * quantity
                 else:
                     market_value = None
                     profit_loss_abs = None
@@ -565,9 +569,10 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     }
                 )
 
-            total_profit_loss_unrealized = total_value - total_invested
+            total_cash_invested = compute_total_cash_invested(transactions, symbol_asset_types) if transactions else 0.0
+            total_profit_loss_unrealized = total_value - total_active_invested
             total_profit_loss = total_profit_loss_unrealized + realized_profit_loss
-            total_profit_loss_pct = ((total_profit_loss / total_invested) * 100) if total_invested else 0
+            total_profit_loss_pct = ((total_profit_loss / total_cash_invested) * 100) if total_cash_invested else 0
 
             # Persist unmapped symbols for repairs visibility
             unmapped_unique = sorted(set(unmapped_symbols))
@@ -614,10 +619,12 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "unmapped_symbols": unmapped_unique,
                 "totals": {
                     "total_value": total_value,
-                    "total_invested": total_invested,
+                    "total_active_invested": total_active_invested,
+                    "total_invested": total_cash_invested,
                     "total_profit_loss": total_profit_loss,
                     "total_profit_loss_pct": total_profit_loss_pct,
                     "total_profit_loss_realized": realized_profit_loss,
+                    "total_profit_loss_unrealized": total_profit_loss_unrealized,
                 },
             }
         except Exception as err:  # pragma: no cover

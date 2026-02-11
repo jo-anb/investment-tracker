@@ -299,3 +299,32 @@ def compute_realized_profit_loss(transactions: list[dict[str, object]]) -> float
             positions[key] = {"qty": qty_new, "avg": avg_old if qty_new > 0 else 0.0}
 
     return realized
+
+
+def compute_total_cash_invested(
+    transactions: list[dict[str, object]],
+    asset_types: dict[str, str] | None = None,
+) -> float:
+    """Return total cash invested (sum of buy transactions)."""
+
+    normalized_types = {}
+    if asset_types:
+        for symbol, asset_type in asset_types.items():
+            if symbol:
+                normalized_types[symbol.strip().upper()] = (asset_type or "").strip().lower()
+
+    total = 0.0
+    for tx in transactions:
+        quantity = float(tx.get("quantity", 0) or 0)
+        if quantity <= 0:
+            continue
+        price = float(tx.get("price", 0) or 0)
+        if not price:
+            continue
+        symbol = (tx.get("symbol") or "").strip().upper()
+        asset_type = normalized_types.get(symbol, "")
+        if asset_type == "bond":
+            total += (price / 100) * quantity
+        else:
+            total += price * quantity
+    return total

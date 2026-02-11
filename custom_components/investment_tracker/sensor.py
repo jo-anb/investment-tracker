@@ -35,6 +35,8 @@ async def async_setup_entry(
         InvestmentTotalProfitLossSensor(coordinator),
         InvestmentTotalProfitLossRealizedSensor(coordinator),
         InvestmentTotalProfitLossPctSensor(coordinator),
+        InvestmentTotalActiveInvestedSensor(coordinator),
+        InvestmentTotalProfitLossUnrealizedSensor(coordinator),
     ]
     tracked: dict[str, SensorEntity] = {}
 
@@ -142,6 +144,30 @@ class InvestmentTotalInvestedSensor(InvestmentBaseSensor):
         return self.coordinator.data.get("portfolio", {}).get("base_currency")
 
 
+class InvestmentTotalActiveInvestedSensor(InvestmentBaseSensor):
+    _attr_name = None
+    _attr_unique_id = None
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_suggested_display_precision = 2
+
+    @property
+    def native_value(self) -> Any:
+        return self.coordinator.data.get("totals", {}).get("total_active_invested", 0)
+
+    @property
+    def name(self) -> str | None:
+        return f"{self._broker_slug()} Total Active Invested"
+
+    @property
+    def unique_id(self) -> str | None:
+        return f"{self._entry_id}_investment_total_active_invested"
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        return self.coordinator.data.get("portfolio", {}).get("base_currency")
+
+
 class InvestmentTotalProfitLossSensor(InvestmentBaseSensor):
     _attr_name = None
     _attr_unique_id = None
@@ -209,6 +235,28 @@ class InvestmentTotalProfitLossRealizedSensor(InvestmentBaseSensor):
     def native_unit_of_measurement(self) -> str | None:
         return self.coordinator.data.get("portfolio", {}).get("base_currency")
 
+class InvestmentTotalProfitLossUnrealizedSensor(InvestmentBaseSensor):
+    _attr_name = None
+    _attr_unique_id = None
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 2
+
+    @property
+    def native_value(self) -> Any:
+        return self.coordinator.data.get("totals", {}).get("total_profit_loss_unrealized", 0)
+
+    @property
+    def name(self) -> str | None:
+        return f"{self._broker_slug()} Total Unrealized Profit/Loss"
+
+    @property
+    def unique_id(self) -> str | None:
+        return f"{self._entry_id}_investment_total_profit_loss_unrealized"
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        return self.coordinator.data.get("portfolio", {}).get("base_currency")
 
 class InvestmentAssetBaseSensor(InvestmentBaseSensor):
     """Base sensor for a single asset."""
