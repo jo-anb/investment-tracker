@@ -7,10 +7,10 @@
         "data": {
           "name": "Name",
           "broker_name": "Broker name",
-            "broker_type": "Broker type",
-            "symbols": "Symbols (comma-separated)",
-            "csv_path": "CSV path (optional)",
-            "csv_mode": "CSV import mode (upload or directory)"
+          "broker_type": "Broker type",
+          "symbols": "Symbols (comma-separated)",
+          "csv_path": "CSV path (optional)",
+          "csv_mode": "CSV import mode (upload or directory)"
         }
       },
       "preferences": {
@@ -51,11 +51,6 @@
       "init": {
         "title": "Investment Tracker Options",
         "description": "Choose what you want to configure.",
-        "menu": {
-          "settings": "Settings",
-          "manual_add": "Manual add",
-          "manual_transaction": "Add transaction"
-        },
         "data": {
           "menu_action": "Action"
         }
@@ -112,19 +107,6 @@
     "unmapped_symbol": {
       "title": "Symbol {symbol} ({name}) not found",
       "description": "The asset {name} ({symbol}) could not be matched to Yahoo Finance."
-    }
-  },
-  "repair_flows": {
-    "unmapped_symbol": {
-      "step": {
-        "init": {
-          "title": "Map symbol",
-          "description": "Choose the correct Yahoo Finance symbol for {name} ({symbol}). Suggested tickers: {suggestions}.",
-          "data": {
-            "mapped_symbol": "Yahoo Finance symbol"
-          }
-        }
-      }
     }
   }
 }

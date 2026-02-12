@@ -48,11 +48,6 @@
       "init": {
         "title": "Investment Tracker Options",
         "description": "Choose what you want to configure.",
-        "menu": {
-          "settings": "Settings",
-          "manual_add": "Manual add",
-          "manual_transaction": "Add transaction"
-        },
         "data": {
           "menu_action": "Action"
         }
@@ -113,19 +108,6 @@
     "unmapped_symbol": {
       "title": "Unmapped symbol",
       "description": "The asset {name} ({symbol}) could not be matched to Yahoo Finance."
-    }
-  },
-  "repair_flows": {
-    "unmapped_symbol": {
-      "step": {
-        "init": {
-          "title": "Map symbol",
-          "description": "Choose the correct Yahoo Finance symbol for {name} ({symbol}). Suggested tickers: {suggestions}.",
-          "data": {
-            "mapped_symbol": "Yahoo Finance symbol"
-          }
-        }
-      }
     }
   }
 }

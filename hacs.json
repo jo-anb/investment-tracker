@@ -3,7 +3,7 @@
     "homeassistant": "2025.2.4",
     "hacs": "1.0.0",
     "hide_default_branch": true,
-    "content_in_root": true,
+    "content_in_root": false,
     "categories": [
         "integration"
     ],
