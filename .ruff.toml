@@ -4,7 +4,22 @@ target-version = "py313"
 
 [lint]
 select = [
-    "ALL",
+    "F",        # Pyflakes rules
+    "W",        # PyCodeStyle warnings
+    "E",        # PyCodeStyle errors
+    "I",        # Sort imports properly
+    "UP",       # Warn if certain things can changed due to newer Python versions
+    "C4",       # Catch incorrect use of comprehensions, dict, list, etc
+    "FA",       # Enforce from __future__ import annotations
+    "ISC",      # Good use of string concatenation
+    "ICN",      # Use common import conventions
+    "RET",      # Good return practices
+    "SIM",      # Common simplification rules
+    "TID",      # Some good import practices
+    "TC",       # Enforce importing certain types in a TYPE_CHECKING block
+    "PTH",      # Use pathlib instead of os.path
+    "TD",       # Be diligent with TODO comments
+    "NPY",      # Some numpy-specific things
 ]
 
 ignore = [
@@ -16,9 +31,15 @@ ignore = [
     "E501", # Line too long
     "ERA001", # Found commented-out code
     "B007", # Loop control variable not used within loop body
+    "BLE001", # Do not catch blind exception: `Exception`
+    "PLR0915", # Too many statements
+    "TC002", # Move third-party import
 ]
 
-exclude = ["release.py"]
+exclude = ["release.py", "scripts/*"]
+
+[lint.pylint]
+max-returns = 10
 
 [lint.flake8-pytest-style]
 fixture-parentheses = false

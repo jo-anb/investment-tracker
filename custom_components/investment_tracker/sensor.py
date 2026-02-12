@@ -95,6 +95,7 @@ class InvestmentBaseSensor(
     """Base sensor."""
 
     def __init__(self, coordinator: InvestmentTrackerCoordinator) -> None:
+        """Initialize base sensor with the coordinator reference."""
         super().__init__(coordinator)
         self._entry_id = coordinator.entry.entry_id
 
@@ -104,6 +105,7 @@ class InvestmentBaseSensor(
 
     @property
     def available(self) -> bool:
+        """Report whether the coordinator successfully refreshed recently."""
         return self.coordinator.last_update_success
 
 
@@ -118,18 +120,22 @@ class InvestmentTotalValueSensor(InvestmentBaseSensor):
 
     @property
     def native_value(self) -> Any:
+        """Return the total portfolio value for the entry."""
         return self.coordinator.data.get("totals", {}).get("total_value", 0)
 
     @property
     def name(self) -> str | None:
+        """Return a display name that includes the broker slug."""
         return f"{self._broker_slug()} Total Value"
 
     @property
     def unique_id(self) -> str | None:
+        """Return a stable unique id for the total value sensor."""
         return f"{self._entry_id}_investment_total_value"
 
     @property
     def native_unit_of_measurement(self) -> str | None:
+        """Return the portfolio's base currency."""
         return self.coordinator.data.get("portfolio", {}).get("base_currency")
 
 
@@ -144,18 +150,22 @@ class InvestmentTotalInvestedSensor(InvestmentBaseSensor):
 
     @property
     def native_value(self) -> Any:
+        """Return the total invested amount for the entry."""
         return self.coordinator.data.get("totals", {}).get("total_invested", 0)
 
     @property
     def name(self) -> str | None:
+        """Return the friendly name for the invested total sensor."""
         return f"{self._broker_slug()} Total Invested"
 
     @property
     def unique_id(self) -> str | None:
+        """Return the stable id for the invested total sensor."""
         return f"{self._entry_id}_investment_total_invested"
 
     @property
     def native_unit_of_measurement(self) -> str | None:
+        """Return the portfolio's currency for invested totals."""
         return self.coordinator.data.get("portfolio", {}).get("base_currency")
 
 
@@ -170,18 +180,22 @@ class InvestmentTotalActiveInvestedSensor(InvestmentBaseSensor):
 
     @property
     def native_value(self) -> Any:
+        """Return the currently active invested amount."""
         return self.coordinator.data.get("totals", {}).get("total_active_invested", 0)
 
     @property
     def name(self) -> str | None:
+        """Return the friendly name for active invested total."""
         return f"{self._broker_slug()} Total Active Invested"
 
     @property
     def unique_id(self) -> str | None:
+        """Return the stable id for the active invested sensor."""
         return f"{self._entry_id}_investment_total_active_invested"
 
     @property
     def native_unit_of_measurement(self) -> str | None:
+        """Return the currency for active invested totals."""
         return self.coordinator.data.get("portfolio", {}).get("base_currency")
 
 
@@ -196,18 +210,22 @@ class InvestmentTotalProfitLossSensor(InvestmentBaseSensor):
 
     @property
     def native_value(self) -> Any:
+        """Return the total profit or loss amount."""
         return self.coordinator.data.get("totals", {}).get("total_profit_loss", 0)
 
     @property
     def name(self) -> str | None:
+        """Return the friendly name for profit/loss totals."""
         return f"{self._broker_slug()} Total Profit/Loss"
 
     @property
     def unique_id(self) -> str | None:
+        """Return the stable id for the profit/loss sensor."""
         return f"{self._entry_id}_investment_total_profit_loss"
 
     @property
     def native_unit_of_measurement(self) -> str | None:
+        """Return the currency for profit/loss totals."""
         return self.coordinator.data.get("portfolio", {}).get("base_currency")
 
 
@@ -222,14 +240,17 @@ class InvestmentTotalProfitLossPctSensor(InvestmentBaseSensor):
 
     @property
     def native_value(self) -> Any:
+        """Return the overall profit/loss percentage."""
         return self.coordinator.data.get("totals", {}).get("total_profit_loss_pct", 0)
 
     @property
     def name(self) -> str | None:
+        """Return the friendly name for the profit/loss percentage sensor."""
         return f"{self._broker_slug()} Total Profit/Loss %"
 
     @property
     def unique_id(self) -> str | None:
+        """Return the stable id for the percentage sensor."""
         return f"{self._entry_id}_investment_total_profit_loss_pct"
 
 
@@ -244,20 +265,24 @@ class InvestmentTotalProfitLossRealizedSensor(InvestmentBaseSensor):
 
     @property
     def native_value(self) -> Any:
+        """Return the realized profit or loss amount."""
         return self.coordinator.data.get("totals", {}).get(
             "total_profit_loss_realized", 0
         )
 
     @property
     def name(self) -> str | None:
+        """Return the friendly name for the realized sensor."""
         return f"{self._broker_slug()} Total Realized Profit/Loss"
 
     @property
     def unique_id(self) -> str | None:
+        """Return the id for the realized profit/loss sensor."""
         return f"{self._entry_id}_investment_total_profit_loss_realized"
 
     @property
     def native_unit_of_measurement(self) -> str | None:
+        """Return the currency for realized profit/loss."""
         return self.coordinator.data.get("portfolio", {}).get("base_currency")
 
 
@@ -272,20 +297,24 @@ class InvestmentTotalProfitLossUnrealizedSensor(InvestmentBaseSensor):
 
     @property
     def native_value(self) -> Any:
+        """Return the unrealized profit or loss amount."""
         return self.coordinator.data.get("totals", {}).get(
             "total_profit_loss_unrealized", 0
         )
 
     @property
     def name(self) -> str | None:
+        """Return the friendly name for the unrealized sensor."""
         return f"{self._broker_slug()} Total Unrealized Profit/Loss"
 
     @property
     def unique_id(self) -> str | None:
+        """Return the id for the unrealized profit/loss sensor."""
         return f"{self._entry_id}_investment_total_profit_loss_unrealized"
 
     @property
     def native_unit_of_measurement(self) -> str | None:
+        """Return the currency for unrealized profit/loss."""
         return self.coordinator.data.get("portfolio", {}).get("base_currency")
 
 
@@ -295,6 +324,7 @@ class InvestmentAssetBaseSensor(InvestmentBaseSensor):
     def __init__(
         self, coordinator: InvestmentTrackerCoordinator, asset: dict[str, Any]
     ) -> None:
+        """Record the asset identifiers for later lookups."""
         super().__init__(coordinator)
         self._symbol = asset.get("symbol", "unknown")
         self._broker = asset.get("broker", "unknown")
@@ -346,10 +376,12 @@ class InvestmentAssetValueSensor(InvestmentAssetBaseSensor):
 
     @property
     def unique_id(self) -> str | None:
+        """Return a per-asset unique identifier for this value sensor."""
         return f"{self._entry_id}_investment_{self._broker}_{self._symbol}".lower()
 
     @property
     def name(self) -> str | None:
+        """Return a friendly name for the asset value sensor."""
         broker = slugify(self._broker)
         asset = self._get_asset() or {}
         display = asset.get("display_name") or asset.get("symbol") or self._symbol
@@ -357,24 +389,29 @@ class InvestmentAssetValueSensor(InvestmentAssetBaseSensor):
 
     @property
     def native_value(self) -> Any:
+        """Return the latest market value for the asset."""
         asset = self._get_asset()
         return asset.get("market_value") if asset else None
 
     @property
     def device_class(self) -> SensorDeviceClass | None:
+        """Declare that this sensor reports monetary values."""
         return SensorDeviceClass.MONETARY
 
     @property
     def state_class(self) -> SensorStateClass | None:
+        """Declare that this sensor tracks a total measurement."""
         return SensorStateClass.TOTAL
 
     @property
     def native_unit_of_measurement(self) -> str | None:
+        """Return the currency code used by the asset."""
         asset = self._get_asset()
         return asset.get("currency") if asset else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Expose the asset attributes collected from the coordinator."""
         return self._base_attributes()
 
 
@@ -387,12 +424,14 @@ class InvestmentAssetProfitLossPctSensor(InvestmentAssetBaseSensor):
 
     @property
     def unique_id(self) -> str | None:
+        """Return the unique identifier for this asset P/L sensor."""
         return (
             f"{self._entry_id}_investment_{self._broker}_{self._symbol}_pl_pct".lower()
         )
 
     @property
     def name(self) -> str | None:
+        """Return a friendly name for the asset profit/loss percentage."""
         broker = slugify(self._broker)
         asset = self._get_asset() or {}
         display = asset.get("display_name") or asset.get("symbol") or self._symbol
@@ -400,6 +439,7 @@ class InvestmentAssetProfitLossPctSensor(InvestmentAssetBaseSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Expose extra metadata associated with the asset."""
         return self._base_attributes()
 
 
@@ -412,24 +452,29 @@ class InvestmentServiceSensor(InvestmentBaseSensor):
 
     @property
     def name(self) -> str | None:
+        """Return the configured entry name or a default."""
         entry_name = self.coordinator.entry.data.get("name")
         return entry_name or "Investment Tracker"
 
     @property
     def suggested_object_id(self) -> str | None:
+        """Return a slugified object id for the service sensor."""
         entry_name = self.coordinator.entry.data.get("name") or "investment_tracker"
         return f"investment_tracker_{slugify(entry_name)}"
 
     @property
     def unique_id(self) -> str | None:
+        """Return a stable unique id for the service sensor."""
         return f"{self._entry_id}_service"
 
     @property
     def native_value(self) -> Any:
+        """Return the integration service state."""
         return "active"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the service-level attributes such as broker details."""
         entry = self.coordinator.entry
         options = entry.options or {}
         attrs: dict[str, Any] = {

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -34,6 +34,9 @@ from .const import (
     DOMAIN,
 )
 
+if TYPE_CHECKING:
+    from homeassistant.data_entry_flow import FlowResult
+
 _LOGGER = logging.getLogger(__name__)
 
 BROKER_TYPES = ["api", "csv", "manual"]
@@ -49,9 +52,12 @@ class InvestmentTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
     def __init__(self) -> None:
+        """Initialize the investment tracker config flow."""
         self._manual_positions: list[dict[str, Any]] = []
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -61,14 +67,14 @@ class InvestmentTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if broker_type == "csv":
                 try:
                     return await self.async_step_csv()
-                except Exception as err:  # pragma: no cover
-                    _LOGGER.exception("Failed to open CSV step: %s", err)
+                except Exception:  # pragma: no cover
+                    _LOGGER.exception("Failed to open CSV step")
                     errors["base"] = "unknown"
             if broker_type == "manual":
                 try:
                     return await self.async_step_manual_setup()
-                except Exception as err:  # pragma: no cover
-                    _LOGGER.exception("Failed to open manual step: %s", err)
+                except Exception:  # pragma: no cover
+                    _LOGGER.exception("Failed to open manual step")
                     errors["base"] = "unknown"
             errors["base"] = "api_not_supported"
 
@@ -81,7 +87,9 @@ class InvestmentTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
-    async def async_step_csv(self, user_input: dict[str, Any] | None = None):
+    async def async_step_csv(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """CSV import setup."""
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -106,7 +114,9 @@ class InvestmentTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         return self.async_show_form(step_id="csv", data_schema=schema, errors=errors)
 
-    async def async_step_manual_setup(self, user_input: dict[str, Any] | None = None):
+    async def async_step_manual_setup(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Manual setup step."""
         if user_input is not None:
             _LOGGER.debug("Config step manual_setup input: %s", user_input)
@@ -141,7 +151,9 @@ class InvestmentTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         return self.async_show_form(step_id="manual_setup", data_schema=schema)
 
-    async def async_step_preferences(self, user_input: dict[str, Any] | None = None):
+    async def async_step_preferences(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Preferences step."""
         if user_input is not None:
             _LOGGER.debug("Config step preferences input: %s", user_input)
@@ -167,6 +179,7 @@ class InvestmentTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
     ) -> config_entries.OptionsFlow:
+        """Return an options flow handler."""
         return InvestmentTrackerOptionsFlow(config_entry)
 
 
@@ -174,9 +187,12 @@ class InvestmentTrackerOptionsFlow(config_entries.OptionsFlow):
     """Options flow for Investment Tracker."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize the investment tracker options flow."""
         self._config_entry = config_entry
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None):
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Show options menu."""
         if user_input is not None:
             action = user_input.get(CONF_MENU_ACTION)
@@ -213,7 +229,9 @@ class InvestmentTrackerOptionsFlow(config_entries.OptionsFlow):
         )
         return self.async_show_form(step_id="init", data_schema=schema)
 
-    async def async_step_settings(self, user_input: dict[str, Any] | None = None):
+    async def async_step_settings(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Handle settings options."""
         if user_input is not None:
             symbols_raw = user_input.get(CONF_SYMBOLS, "")
@@ -294,7 +312,9 @@ class InvestmentTrackerOptionsFlow(config_entries.OptionsFlow):
         )
         return self.async_show_form(step_id="settings", data_schema=schema)
 
-    async def async_step_manual_add(self, user_input: dict[str, Any] | None = None):
+    async def async_step_manual_add(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         """Manual add flow."""
         if user_input is not None:
             manual_symbol = user_input.get(CONF_MANUAL_SYMBOL, "").strip().upper()
@@ -341,7 +361,7 @@ class InvestmentTrackerOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_manual_transaction(
         self, user_input: dict[str, Any] | None = None
-    ):
+    ) -> FlowResult:
         """Manual transaction add flow."""
         if user_input is not None:
             symbol = user_input.get(CONF_MANUAL_SYMBOL, "").strip().upper()
@@ -403,7 +423,7 @@ class InvestmentTrackerOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_investment_plan(
         self, user_input: dict[str, Any] | None = None
-    ):
+    ) -> FlowResult:
         """Investment plan options."""
         if user_input is not None:
             per_asset_raw = user_input.get(CONF_PLAN_PER_ASSET, "")

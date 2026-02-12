@@ -5,13 +5,11 @@ from __future__ import annotations
 import inspect
 import logging
 from datetime import timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 from homeassistant.util import slugify
@@ -29,20 +27,28 @@ from .const import (
 )
 from .coordinator import InvestmentTrackerCoordinator
 
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant, ServiceCall
+
 _LOGGER = logging.getLogger(__name__)
 
-_SEARCH_VIEW_REGISTERED = False
+_SEARCH_VIEW_REGISTERED: dict[str, bool] = {"value": False}
 
 
 class InvestmentTrackerSearchSymbolsView(HomeAssistantView):
+    """Expose an HTTP endpoint that searches for symbols."""
+
     url = "/api/investment_tracker/search_symbols"
     name = "api:investment_tracker:search_symbols"
     requires_auth = True
 
     def __init__(self, hass: HomeAssistant) -> None:
+        """Keep a reference to Home Assistant for executor lookups."""
         self.hass = hass
 
     async def get(self, request: web.Request) -> web.Response:
+        """Return matching symbols based on the query parameter."""
         query = request.query.get("symbol", "").strip()
         results: list[dict[str, Any]] = []
         if query:
@@ -57,10 +63,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     await coordinator.async_config_entry_first_refresh()
 
-    global _SEARCH_VIEW_REGISTERED
-    if not _SEARCH_VIEW_REGISTERED:
+    if not _SEARCH_VIEW_REGISTERED["value"]:
         hass.http.register_view(InvestmentTrackerSearchSymbolsView(hass))
-        _SEARCH_VIEW_REGISTERED = True
+        _SEARCH_VIEW_REGISTERED["value"] = True
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
@@ -105,7 +110,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 continue
             slugs = [slugify(attrs.get("broker_name") or "")]
             additional = attrs.get("broker_slugs") or []
-            if isinstance(additional, (list, tuple)):
+            if isinstance(additional, list | tuple):
                 for value in additional:
                     slugs.append(slugify(value or ""))
             if broker_slug not in [slug for slug in slugs if slug]:
@@ -118,11 +123,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 return coord
         return None
 
-    async def _handle_refresh(call) -> None:
+    async def _handle_refresh(_: ServiceCall) -> None:
         coordinator: InvestmentTrackerCoordinator = hass.data[DOMAIN][entry.entry_id]
         await coordinator.async_request_refresh()
 
-    async def _handle_refresh_asset(call) -> None:
+    async def _handle_refresh_asset(call: ServiceCall) -> None:
         entry_id = call.data.get("entry_id")
         broker = call.data.get("broker")
         symbol = call.data.get("symbol")
@@ -134,7 +139,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if coordinator and symbol:
             await coordinator.async_refresh_asset(symbol, broker)
 
-    async def _handle_remap_symbol(call) -> None:
+    async def _handle_remap_symbol(call: ServiceCall) -> None:
         entry_id = call.data.get("entry_id")
         broker = call.data.get("broker")
         symbol = call.data.get("symbol")
@@ -245,7 +250,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if updated:
             await coordinator.async_request_refresh()
 
-    async def _handle_delete_history(call) -> None:
+    async def _handle_delete_history(call: ServiceCall) -> None:
         entry_id = call.data.get("entry_id")
         broker = call.data.get("broker")
         entity_id = call.data.get("entity_id")
@@ -314,7 +319,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         await coordinator.async_request_refresh()
 
-    async def _handle_update_plan(call) -> None:
+    async def _handle_update_plan(call: ServiceCall) -> None:
         entry_id = call.data.get("entry_id")
         broker = call.data.get("broker")
         coordinator: InvestmentTrackerCoordinator | None = _find_coordinator(
@@ -343,7 +348,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             per_asset_payload = call.data.get(CONF_PLAN_PER_ASSET, [])
             if isinstance(per_asset_payload, str):
                 per_asset_list = [per_asset_payload]
-            elif isinstance(per_asset_payload, (list, tuple)):
+            elif isinstance(per_asset_payload, list | tuple):
                 per_asset_list = per_asset_payload
             else:
                 per_asset_list = []

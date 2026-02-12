@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.data_entry_flow import FlowResult
 
+
 async def async_create_fix_flow(
     hass: HomeAssistant, issue_id: str, data: dict[str, Any] | None
 ) -> RepairsFlow:

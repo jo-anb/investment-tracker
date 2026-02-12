@@ -202,7 +202,7 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ((total_profit_loss / total_invested) * 100) if total_invested else 0
         )
 
-        unmapped_unique = sorted(set([s for s in unmapped_symbols if s]))
+        unmapped_unique = sorted({s for s in unmapped_symbols if s})
         prev_unmapped = set(self.entry.data.get("unmapped_symbols", []))
         if self.entry.data.get("unmapped_symbols") != unmapped_unique:
             await self._update_entry_data({"unmapped_symbols": unmapped_unique})
@@ -539,7 +539,6 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             symbol_asset_types: dict[str, str] = {}
 
             quote_type_cache: dict[str, dict[str, Any] | None] = {}
-            summary_profile_cache: dict[str, dict[str, Any] | None] = {}
 
             for pos in positions or [
                 {
@@ -633,7 +632,11 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         )
 
                 # Map Yahoo type/category to integration type
-                def map_yahoo_category(yahoo_type, sector, industry):
+                def map_yahoo_category(
+                    yahoo_type: str | None,
+                    sector: str | None,
+                    industry: str | None,
+                ) -> str:
                     yt = (yahoo_type or "").lower()
                     sec = (sector or "").lower()
                     ind = (industry or "").lower()
