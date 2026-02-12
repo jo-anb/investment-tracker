@@ -4,3 +4,4 @@
 custom_components/investment_tracker/__pycache__/
 scripts/cp
 .env
+.ruff_cache/
