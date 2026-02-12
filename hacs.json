@@ -3,13 +3,5 @@
     "homeassistant": "2025.2.4",
     "hacs": "1.0.0",
     "hide_default_branch": true,
-    "content_in_root": false,
-    "categories": [
-        "integration"
-    ],
-    "domains": [
-        "investment_tracker"
-    ],
-    "image": "branding/logo.png",
-    "brand": "branding/logo.png"
+    "content_in_root": false
 }
