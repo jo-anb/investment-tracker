@@ -350,6 +350,13 @@ class InvestmentAssetBaseSensor(InvestmentBaseSensor):
         asset = self._get_asset()
         if not asset:
             return None
+        
+        # Check if this asset has use_transaction_price enabled
+        use_transaction_price = False
+        if hasattr(self.coordinator, '_transaction_price_overrides'):
+            key = f"{asset.get('symbol', '').strip().upper()}/{asset.get('broker', '').strip().lower()}".lower()
+            use_transaction_price = self.coordinator._transaction_price_overrides.get(key, False)
+        
         attrs = {
             "friendly_name": asset.get("display_name") or asset.get("symbol"),
             "exchange_name": asset.get("exchange_name"),
@@ -371,6 +378,7 @@ class InvestmentAssetBaseSensor(InvestmentBaseSensor):
             "last_price_update": asset.get("last_price_update"),
             "transactions": asset.get("transactions", []),
             "repair_suggestions": asset.get("repair_suggestions", []),
+            "use_transaction_price": use_transaction_price,
         }
         logo_url = asset.get("logoUrl")
         if logo_url:

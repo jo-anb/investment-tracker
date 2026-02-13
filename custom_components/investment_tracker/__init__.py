@@ -145,6 +145,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         symbol = call.data.get("symbol")
         ticker = call.data.get("ticker")
         category = call.data.get("category")
+        use_transaction_price = call.data.get("use_transaction_price", False)
 
         coordinator: InvestmentTrackerCoordinator | None = _find_coordinator(
             entry_id, broker
@@ -161,11 +162,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry = coordinator.entry
         updated = False
         _LOGGER.debug(
-            "remap_symbol called symbol=%s broker=%s ticker=%s category=%s",
+            "remap_symbol called symbol=%s broker=%s ticker=%s category=%s use_transaction_price=%s",
             symbol,
             broker,
             ticker,
             category,
+            use_transaction_price,
         )
 
         if symbol and ticker:
@@ -177,6 +179,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             updated = True
             _LOGGER.debug("remap_symbol stored ticker mapping %s -> %s", symbol, ticker)
+
+        if use_transaction_price:
+            # Store use_transaction_price flag in coordinator for entity attribute updates
+            if not hasattr(coordinator, '_transaction_price_overrides'):
+                coordinator._transaction_price_overrides = {}
+            key = f"{symbol}/{broker}".lower() if symbol and broker else None
+            if key:
+                coordinator._transaction_price_overrides[key] = True
+                updated = True
+                _LOGGER.debug("remap_symbol stored use_transaction_price for %s", key)
 
         if category:
             positions = entry.data.get("positions", [])

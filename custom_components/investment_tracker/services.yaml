@@ -68,6 +68,13 @@ remap_symbol:
             - crypto
             - cash
             - other
+    use_transaction_price:
+      name: Use transaction price
+      description: Use price from the latest transaction instead of live market price.
+      required: false
+      default: false
+      selector:
+        boolean:
 
 delete_history:
   name: Delete history
