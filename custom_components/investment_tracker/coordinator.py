@@ -116,6 +116,87 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             unique.append(tx)
         return unique
 
+    async def async_rebuild_transactions(self, broker: str | None = None) -> None:
+        """Rebuild stored transactions from processed CSV imports."""
+        broker_type = self.entry.data.get(CONF_BROKER_TYPE, "csv")
+        if broker_type != "csv":
+            self.logger.debug(
+                "rebuild_transactions skipped because broker_type=%s", broker_type
+            )
+            return
+
+        csv_mode = self.entry.options.get(
+            CONF_CSV_MODE, self.entry.data.get(CONF_CSV_MODE, "directory")
+        )
+        if csv_mode != "directory":
+            self.logger.debug(
+                "rebuild_transactions supports only directory csv_mode=%s",
+                csv_mode,
+            )
+            return
+
+        import_dir = Path(
+            self.hass.config.path("www", "investment_tracker_imports")
+        )
+        if not import_dir.exists():
+            self.logger.debug(
+                "rebuild_transactions import directory not found at %s", import_dir
+            )
+            return
+
+        # Filter by service broker and supplied broker parameter
+        service_broker = self.entry.data.get(CONF_BROKER_NAME, "")
+        service_broker_lower = (service_broker or "").strip().lower()
+        explicit_broker_filter = (broker or "").strip().lower() or None
+        # Only accept broker override if it matches the service broker
+        if explicit_broker_filter and explicit_broker_filter != service_broker_lower:
+            self.logger.debug(
+                "rebuild_transactions broker_filter=%s does not match service broker=%s",
+                explicit_broker_filter,
+                service_broker_lower,
+            )
+            return
+        broker_filter = explicit_broker_filter or service_broker_lower
+        if not broker_filter:
+            self.logger.debug("rebuild_transactions no broker name configured for service")
+            return
+
+        processed_files = sorted(import_dir.glob("*_transactions.csv.processed.*"))
+        if not processed_files:
+            self.logger.debug("rebuild_transactions found no processed files")
+            return
+
+        collected: list[dict[str, Any]] = []
+        for processed_file in processed_files:
+            if not processed_file.is_file():
+                continue
+            base = processed_file.name.split(".csv.processed", 1)[0]
+            file_broker = base.replace("_transactions", "").replace(" ", "")
+            if not file_broker:
+                continue
+            normalized_file_broker = file_broker.strip().lower()
+            if normalized_file_broker != broker_filter:
+                continue
+            incoming = await self.hass.async_add_executor_job(
+                parse_transactions_csv, str(processed_file), file_broker
+            )
+            if incoming:
+                collected.extend(incoming)
+
+        if not collected:
+            self.logger.debug(
+                "rebuild_transactions found no transactions matching broker=%s",
+                broker_filter,
+            )
+            return
+
+        deduped = self._dedupe_transactions(collected)
+        self._transactions = deduped
+        await self._update_entry_data({"transactions": deduped})
+        self.logger.info(
+            "Rebuilt %s transactions from processed imports for broker=%s", len(deduped), broker_filter
+        )
+
     async def async_refresh_asset(self, symbol: str, broker: str | None = None) -> None:
         """Refresh a single asset via Stooq and update coordinator data."""
         symbol = (symbol or "").replace("$", "").strip().upper()
@@ -362,8 +443,11 @@ class InvestmentTrackerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     )
                     await self._update_entry_data({"positions": positions})
 
-            # Recompute positions if transactions are present (do not persist to avoid compounding)
-            if transactions:
+            # Recompute positions only if they're missing quantities (initial import), to avoid overwriting existing data
+            positions_have_quantities = any(
+                float(pos.get("quantity", 0)) != 0 for pos in positions
+            )
+            if transactions and not positions_have_quantities:
                 positions = apply_transactions_to_positions(positions, transactions)
 
             if not symbols and positions:

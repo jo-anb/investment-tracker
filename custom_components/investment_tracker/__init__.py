@@ -199,7 +199,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     positions = fallback_positions
                     hass.config_entries.async_update_entry(
                         entry,
-                        data={**entry.data, "positions": positions, "transactions": []},
+                        data={**entry.data, "positions": positions},
                     )
                     _LOGGER.debug(
                         "remap_symbol populated positions from assets for manual overrides"
@@ -249,6 +249,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 )
         if updated:
             await coordinator.async_request_refresh()
+
+    async def _handle_rebuild_transactions(call: ServiceCall) -> None:
+        entry_id = call.data.get("entry_id")
+        broker = call.data.get("broker")
+        entity_id = call.data.get("entity_id")
+        registry = er.async_get(hass)
+        resolved_entry_id = entry_id
+        if resolved_entry_id:
+            registry_entity = registry.async_get(resolved_entry_id)
+            if registry_entity:
+                resolved_entry_id = registry_entity.config_entry_id
+        if not resolved_entry_id and entity_id:
+            registry_entity = registry.async_get(entity_id)
+            if registry_entity:
+                resolved_entry_id = registry_entity.config_entry_id
+
+        coordinator = _find_coordinator(resolved_entry_id, broker)
+        if not coordinator:
+            _LOGGER.warning(
+                "rebuild_transactions: no coordinator found for broker=%s entry_id=%s",
+                broker,
+                resolved_entry_id or entry_id,
+            )
+            return
+        await coordinator.async_rebuild_transactions(broker)
 
     async def _handle_delete_history(call: ServiceCall) -> None:
         entry_id = call.data.get("entry_id")
@@ -376,6 +401,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.services.async_register(DOMAIN, "delete_history", _handle_delete_history)
     if hass.services.has_service(DOMAIN, "update_plan") is False:
         hass.services.async_register(DOMAIN, "update_plan", _handle_update_plan)
+    if hass.services.has_service(DOMAIN, "rebuild_transactions") is False:
+        hass.services.async_register(
+            DOMAIN, "rebuild_transactions", _handle_rebuild_transactions
+        )
 
     return True
 

@@ -94,3 +94,29 @@ delete_history:
       example: sensor.investment_tracker_degiro
       selector:
         entity:
+
+rebuild_transactions:
+  name: Rebuild transactions
+  description: Recreate the stored transaction list from processed import CSVs without touching other asset data.
+  fields:
+    broker:
+      name: Broker
+      description: Optional broker name to filter the rebuild operation.
+      required: false
+      example: degiro
+      selector:
+        text:
+    entry_id:
+      name: Entry ID
+      description: Optional config entry id to target.
+      required: false
+      example: 123abc
+      selector:
+        text:
+    entity_id:
+      name: Entity
+      description: Optional sensor entity id to target the rebuild.
+      required: false
+      example: sensor.investment_tracker_revolut
+      selector:
+        entity:
