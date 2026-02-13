@@ -58,6 +58,7 @@ async def async_setup_entry(
         for asset in assets:
             current_keys.add(_asset_key(asset, "value"))
             current_keys.add(_asset_key(asset, "pl_pct"))
+            current_keys.add(_asset_key(asset, "price"))
 
         # Add new entities
         new_entities: list[SensorEntity] = []
@@ -72,6 +73,12 @@ async def async_setup_entry(
             if pl_pct_key not in tracked:
                 sensor = InvestmentAssetProfitLossPctSensor(coordinator, asset)
                 tracked[pl_pct_key] = sensor
+                new_entities.append(sensor)
+
+            price_key = _asset_key(asset, "price")
+            if price_key not in tracked:
+                sensor = InvestmentAssetPriceSensor(coordinator, asset)
+                tracked[price_key] = sensor
                 new_entities.append(sensor)
 
         if new_entities:
@@ -436,6 +443,46 @@ class InvestmentAssetProfitLossPctSensor(InvestmentAssetBaseSensor):
         asset = self._get_asset() or {}
         display = asset.get("display_name") or asset.get("symbol") or self._symbol
         return f"{broker} {display} P/L %"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Expose extra metadata associated with the asset."""
+        return self._base_attributes()
+
+
+class InvestmentAssetPriceSensor(InvestmentAssetBaseSensor):
+    """Sensor reporting the current price for an individual asset."""
+
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 2
+
+    @property
+    def unique_id(self) -> str | None:
+        """Return the unique identifier for this asset price sensor."""
+        return (
+            f"{self._entry_id}_investment_{self._broker}_{self._symbol}_price".lower()
+        )
+
+    @property
+    def name(self) -> str | None:
+        """Return a friendly name for the asset price sensor."""
+        broker = slugify(self._broker)
+        asset = self._get_asset() or {}
+        display = asset.get("display_name") or asset.get("symbol") or self._symbol
+        return f"{broker} {display} Price"
+
+    @property
+    def native_value(self) -> Any:
+        """Return the current price for the asset."""
+        asset = self._get_asset()
+        return asset.get("current_price") if asset else None
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the currency code used by the asset."""
+        asset = self._get_asset()
+        return asset.get("currency") if asset else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
